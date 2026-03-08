@@ -11,6 +11,10 @@
   [![LM Studio Supported](https://img.shields.io/badge/LM_Studio-Supported-ff69b4.svg)](https://lmstudio.ai/)
 </div>
 
+<div align="center">
+  <img width=75% height=auto alt="Image" src="https://github.com/user-attachments/assets/2a1e34bb-55b7-4881-b387-20e86fa601d9" />
+</div>
+
 <br/>
 
 MultiMind AI acts as an intelligent reasoning pipeline for your local AI models. It effortlessly auto-discovers endpoints like Ollama and LM Studio (OpenAI-compatible) and lets you orchestrate dedicated models for different logical phases: **Planning**, **Execution**, and **Critique**.
