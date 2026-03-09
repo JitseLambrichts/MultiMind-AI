@@ -11,7 +11,7 @@
   [![LM Studio Supported](https://img.shields.io/badge/LM_Studio-Supported-ff69b4.svg)](https://lmstudio.ai/)
 </div>
 
-<img width="1492" height="817" alt="Image" src="https://github.com/user-attachments/assets/77e578af-9236-41b3-8fda-c9c69d97b4ca" />
+![Image](https://github.com/user-attachments/assets/7b745a2f-6227-46fc-b4f0-47b2e58a0964)
 
 <br/>
 
