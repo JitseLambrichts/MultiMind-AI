@@ -11,9 +11,7 @@
   [![LM Studio Supported](https://img.shields.io/badge/LM_Studio-Supported-ff69b4.svg)](https://lmstudio.ai/)
 </div>
 
-<div align="center">
-  <img width=75% height=auto alt="Image" src="https://github.com/user-attachments/assets/2a1e34bb-55b7-4881-b387-20e86fa601d9" />
-</div>
+<img width="1492" height="817" alt="Image" src="https://github.com/user-attachments/assets/77e578af-9236-41b3-8fda-c9c69d97b4ca" />
 
 <br/>
 
@@ -50,16 +48,20 @@ multimind
 <summary><b>🛠 Setting up for Development / Source Install</b></summary>
 
 ```bash
-# 1. Create a virtual environment
+# 1. Clone the repository
+git clone https://github.com/JitseLambrichts/MultiMind-AI.git
+cd MultiMind-AI
+
+# 2. Create a virtual environment
 python3 -m venv .venv
 
-# 2. Activate the virtual environment
+# 3. Activate the virtual environment
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# 3. Install the package in editable mode
+# 4. Install the package in editable mode
 pip install -e .
 
-# 4. Launch the application
+# 5. Launch the application
 multimind
 ```
 

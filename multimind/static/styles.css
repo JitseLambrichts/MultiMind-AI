@@ -12,7 +12,8 @@
   --shadow: 0 18px 50px rgba(42, 34, 20, 0.12);
   --radius: 24px;
   --radius-sm: 16px;
-  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-display:
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   --font-body: "Avenir Next", "Segoe UI", sans-serif;
 }
 
@@ -24,8 +25,17 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  background: radial-gradient(circle at top left, rgba(184, 92, 56, 0.16), transparent 24%),
-    radial-gradient(circle at top right, rgba(57, 113, 139, 0.12), transparent 28%),
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(184, 92, 56, 0.16),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(57, 113, 139, 0.12),
+      transparent 28%
+    ),
     linear-gradient(180deg, #f7f1e7 0%, #efe6d9 100%);
   color: var(--text);
   font-family: var(--font-body);
@@ -38,7 +48,8 @@ body {
 .backdrop {
   position: fixed;
   inset: 0;
-  background-image: linear-gradient(rgba(23, 32, 39, 0.02) 1px, transparent 1px),
+  background-image:
+    linear-gradient(rgba(23, 32, 39, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(23, 32, 39, 0.02) 1px, transparent 1px);
   background-size: 28px 28px;
   mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
@@ -51,6 +62,11 @@ body {
   grid-template-columns: 340px minmax(0, 1fr);
   gap: 20px;
   padding: 22px;
+  transition: grid-template-columns 300ms ease;
+}
+
+.shell.sidebar-collapsed {
+  grid-template-columns: 80px minmax(0, 1fr);
 }
 
 .panel {
@@ -67,6 +83,42 @@ body {
   top: 22px;
   height: calc(100vh - 44px);
   overflow: auto;
+  transition: padding 300ms ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.shell.sidebar-collapsed .settings-header {
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.shell.sidebar-collapsed .settings-header .title-container {
+  display: none;
+}
+
+.shell.sidebar-collapsed .settings-content {
+  display: none;
+}
+
+.shell.sidebar-collapsed #toggleSidebar {
+  transform: rotate(180deg);
+}
+
+.icon-button {
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .workspace-panel {
@@ -155,7 +207,10 @@ button {
   border: 0;
   border-radius: 999px;
   cursor: pointer;
-  transition: transform 150ms ease, opacity 150ms ease, background 150ms ease;
+  transition:
+    transform 150ms ease,
+    opacity 150ms ease,
+    background 150ms ease;
 }
 
 button:hover {
@@ -236,7 +291,11 @@ button:hover {
 }
 
 .user-message {
-  background: linear-gradient(135deg, rgba(184, 92, 56, 0.1), rgba(255, 255, 255, 0.88));
+  background: linear-gradient(
+    135deg,
+    rgba(184, 92, 56, 0.1),
+    rgba(255, 255, 255, 0.88)
+  );
 }
 
 .message-body,
@@ -308,7 +367,8 @@ button:hover {
 }
 
 .final-answer code {
-  font-family: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family:
+    "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.92em;
   background: rgba(23, 32, 39, 0.06);
   border-radius: 6px;
@@ -459,7 +519,8 @@ button:hover {
 }
 
 .step-content code {
-  font-family: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family:
+    "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.92em;
   background: rgba(23, 32, 39, 0.06);
   border-radius: 6px;

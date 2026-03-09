@@ -3,74 +3,137 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Thinking-Wrapper</title>
+    <title>MultiMind</title>
     <link rel="stylesheet" href="/static/vendor/katex/katex.min.css" />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
     <div class="backdrop"></div>
-    <div class="shell">
+    <div class="shell" id="appShell">
       <aside class="panel settings-panel">
-        <div class="eyebrow">Local reasoning pipeline</div>
-        <h1>Thinking-Wrapper</h1>
-        <p class="lede">
-          Small local models get a stricter process: plan, execute, then critique.
-        </p>
-
-        <div class="settings-group">
-          <div class="section-title-row">
-            <h2>Provider</h2>
-            <button id="refreshProviders" class="ghost-button" type="button">Refresh</button>
+        <div class="settings-header">
+          <div class="title-container">
+            <div class="eyebrow">Local reasoning pipeline</div>
+            <h1>MultiMind</h1>
           </div>
-          <label>
-            <span>Detected backend</span>
-            <select id="providerSelect"></select>
-          </label>
-          <label>
-            <span>Kind</span>
-            <select id="providerKind">
-              <option value="ollama">Ollama</option>
-              <option value="openai">OpenAI-compatible</option>
-            </select>
-          </label>
-          <label>
-            <span>Base URL</span>
-            <input id="baseUrl" type="text" placeholder="http://127.0.0.1:11434" />
-          </label>
+          <button
+            id="toggleSidebar"
+            class="ghost-button icon-button"
+            type="button"
+            aria-label="Toggle settings"
+            title="Toggle settings"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
         </div>
 
-        <div class="settings-group">
-          <h2>Per-step models</h2>
-          <label>
-            <span>Planning</span>
-            <input id="modelPlan" type="text" list="modelSuggestions" placeholder="llama3.2:3b" />
-          </label>
-          <label>
-            <span>Execution</span>
-            <input id="modelExecute" type="text" list="modelSuggestions" placeholder="llama3.2:3b" />
-          </label>
-          <label>
-            <span>Critique</span>
-            <input id="modelCritique" type="text" list="modelSuggestions" placeholder="llama3.2:3b" />
-          </label>
+        <div class="settings-content">
+          <p class="lede">
+            Small local models get a stricter process: plan, execute, then
+            critique.
+          </p>
+
+          <div class="settings-group">
+            <div class="section-title-row">
+              <h2>Provider</h2>
+              <button id="refreshProviders" class="ghost-button" type="button">
+                Refresh
+              </button>
+            </div>
+            <label>
+              <span>Detected backend</span>
+              <select id="providerSelect"></select>
+            </label>
+            <label>
+              <span>Kind</span>
+              <select id="providerKind">
+                <option value="ollama">Ollama</option>
+                <option value="openai">OpenAI-compatible</option>
+              </select>
+            </label>
+            <label>
+              <span>Base URL</span>
+              <input
+                id="baseUrl"
+                type="text"
+                placeholder="http://127.0.0.1:11434"
+              />
+            </label>
+          </div>
+
+          <div class="settings-group">
+            <h2>Per-step models</h2>
+            <label>
+              <span>Planning</span>
+              <input
+                id="modelPlan"
+                type="text"
+                list="modelSuggestions"
+                placeholder="llama3.2:3b"
+              />
+            </label>
+            <label>
+              <span>Execution</span>
+              <input
+                id="modelExecute"
+                type="text"
+                list="modelSuggestions"
+                placeholder="llama3.2:3b"
+              />
+            </label>
+            <label>
+              <span>Critique</span>
+              <input
+                id="modelCritique"
+                type="text"
+                list="modelSuggestions"
+                placeholder="llama3.2:3b"
+              />
+            </label>
+          </div>
+
+          <datalist id="modelSuggestions"></datalist>
+
+          <button id="saveSettings" class="primary-button" type="button">
+            Save settings
+          </button>
+          <div id="statusBar" class="status-bar">
+            Waiting for local providers.
+          </div>
         </div>
-
-        <datalist id="modelSuggestions"></datalist>
-
-        <button id="saveSettings" class="primary-button" type="button">Save settings</button>
-        <div id="statusBar" class="status-bar">Waiting for local providers.</div>
       </aside>
 
       <main class="panel workspace-panel">
         <section class="hero">
           <div>
-            <div class="eyebrow">MVP</div>
-            <h2>Reasoning modes that stay local</h2>
+            <h2>Make your local models reason</h2>
           </div>
-          <div class="mode-toggle" id="modeToggle" role="tablist" aria-label="Reasoning mode">
-            <button class="mode-button" data-mode="off" type="button">Off</button>
-            <button class="mode-button" data-mode="medium" type="button">Medium</button>
-            <button class="mode-button active" data-mode="hard" type="button">Hard</button>
+          <div
+            class="mode-toggle"
+            id="modeToggle"
+            role="tablist"
+            aria-label="Reasoning mode"
+          >
+            <button class="mode-button" data-mode="off" type="button">
+              Off
+            </button>
+            <button class="mode-button" data-mode="medium" type="button">
+              Medium
+            </button>
+            <button class="mode-button active" data-mode="hard" type="button">
+              Hard
+            </button>
           </div>
         </section>
 
@@ -84,7 +147,9 @@
             placeholder="Ask for a plan, a code fix, a summary, or a logic puzzle."
           ></textarea>
           <div class="composer-actions">
-            <button id="sendButton" class="primary-button" type="submit">Run pipeline</button>
+            <button id="sendButton" class="primary-button" type="submit">
+              Run pipeline
+            </button>
           </div>
         </form>
       </main>
@@ -127,7 +192,10 @@
     </template>
 
     <script defer src="/static/vendor/katex/katex.min.js"></script>
-    <script defer src="/static/vendor/katex/contrib/auto-render.min.js"></script>
+    <script
+      defer
+      src="/static/vendor/katex/contrib/auto-render.min.js"
+    ></script>
     <script type="module" src="/static/app.js"></script>
   </body>
 </html>
