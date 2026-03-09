@@ -87,3 +87,11 @@ MultiMind AI splits inference into modular steps, elevating the capabilities of 
 3. **Critique (Hard Mode)**: Evaluates the execution pass as a rough draft and streams refined, critiqued output as the final answer.
 
 > 📝 **Note:** Chat history is intentionally in-memory only for the current MVP.
+
+## 📊 Benchmarks
+
+We evaluated the performance of MultiMind AI's reasoning pipeline using a subset of 20 questions from the GSM8K dataset. The results demonstrate a clear improvement in model accuracy when utilizing the different reasoning modes.
+<br>
+<div align="center">
+    <img width=65% alt="Image" src="https://github.com/user-attachments/assets/3df2b12f-97c1-4cb2-8b7d-b49a0c5c379c" />
+</div>
