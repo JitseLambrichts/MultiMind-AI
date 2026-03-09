@@ -64,7 +64,11 @@ function scheduleStepRender(step) {
 
 function flushFinalAnswerRender(container) {
   container.renderScheduled = false;
-  renderFinalAnswer(container.finalAnswer, container.pendingAnswerContent, container.pendingAnswerHtml);
+  renderFinalAnswer(
+    container.finalAnswer,
+    container.pendingAnswerContent,
+    container.pendingAnswerHtml,
+  );
 }
 
 function scheduleFinalAnswerRender(container) {
@@ -107,7 +111,9 @@ function renderProviders() {
 }
 
 function modelOptionsForSelectedProvider() {
-  const selected = state.providers.find((provider) => provider.name === providerSelect.value);
+  const selected = state.providers.find(
+    (provider) => provider.name === providerSelect.value,
+  );
   return selected?.models ?? [];
 }
 
@@ -146,24 +152,34 @@ function renderSettings() {
 }
 
 async function loadSettings(endpoint = "/api/settings") {
-  const response = await fetch(endpoint, { method: endpoint === "/api/settings" ? "GET" : "POST" });
+  const response = await fetch(endpoint, {
+    method: endpoint === "/api/settings" ? "GET" : "POST",
+  });
   const payload = await response.json();
   state.providers = payload.providers;
   state.settings = payload.settings;
   renderSettings();
 
-  const activeProvider = state.providers.find((provider) => provider.name === state.settings.provider_name);
+  const activeProvider = state.providers.find(
+    (provider) => provider.name === state.settings.provider_name,
+  );
   if (activeProvider?.available) {
-    setStatus(`Connected to ${activeProvider.name} at ${activeProvider.base_url}.`);
+    setStatus(
+      `Connected to ${activeProvider.name} at ${activeProvider.base_url}.`,
+    );
   } else if (state.providers.length) {
-    setStatus("No detected provider is online. You can still point the app at a local endpoint manually.");
+    setStatus(
+      "No detected provider is online. You can still point the app at a local endpoint manually.",
+    );
   } else {
     setStatus("No providers detected yet.");
   }
 }
 
 function syncProviderFields() {
-  const selected = state.providers.find((provider) => provider.name === providerSelect.value);
+  const selected = state.providers.find(
+    (provider) => provider.name === providerSelect.value,
+  );
   if (!selected) {
     return;
   }
@@ -357,46 +373,63 @@ async function streamChat(message) {
     });
   }
 
-  assistant.root.querySelector(".message-meta").textContent = state.selectedMode.toUpperCase();
+  assistant.root.querySelector(".message-meta").textContent =
+    state.selectedMode.toUpperCase();
   assistant.root.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
 document.querySelectorAll(".mode-button").forEach((button) => {
   button.addEventListener("click", () => {
-    document.querySelectorAll(".mode-button").forEach((node) => node.classList.remove("active"));
+    document
+      .querySelectorAll(".mode-button")
+      .forEach((node) => node.classList.remove("active"));
     button.classList.add("active");
     state.selectedMode = button.dataset.mode;
     setStatus(`Reasoning mode set to ${state.selectedMode}.`);
   });
 });
 
+const appShell = document.querySelector("#appShell");
+const toggleSidebar = document.querySelector("#toggleSidebar");
+if (toggleSidebar && appShell) {
+  toggleSidebar.addEventListener("click", () => {
+    appShell.classList.toggle("sidebar-collapsed");
+  });
+}
+
 providerSelect.addEventListener("change", syncProviderFields);
 document.querySelector("#saveSettings").addEventListener("click", saveSettings);
-document.querySelector("#refreshProviders").addEventListener("click", async () => {
-  setStatus("Refreshing local providers...");
-  await loadSettings("/api/providers/refresh");
-});
+document
+  .querySelector("#refreshProviders")
+  .addEventListener("click", async () => {
+    setStatus("Refreshing local providers...");
+    await loadSettings("/api/providers/refresh");
+  });
 
-document.querySelector("#composer").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const message = promptInput.value.trim();
-  if (!message) {
-    return;
-  }
+document
+  .querySelector("#composer")
+  .addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = promptInput.value.trim();
+    if (!message) {
+      return;
+    }
 
-  sendButton.disabled = true;
-  setStatus(`Running ${state.selectedMode} reasoning pipeline...`);
-  try {
-    await streamChat(message);
-    promptInput.value = "";
-    setStatus("Pipeline complete.");
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : "Streaming failed.");
-  } finally {
-    sendButton.disabled = false;
-  }
-});
+    sendButton.disabled = true;
+    setStatus(`Running ${state.selectedMode} reasoning pipeline...`);
+    try {
+      await streamChat(message);
+      promptInput.value = "";
+      setStatus("Pipeline complete.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Streaming failed.");
+    } finally {
+      sendButton.disabled = false;
+    }
+  });
 
 loadSettings().catch((error) => {
-  setStatus(error instanceof Error ? error.message : "Failed to load settings.");
+  setStatus(
+    error instanceof Error ? error.message : "Failed to load settings.",
+  );
 });

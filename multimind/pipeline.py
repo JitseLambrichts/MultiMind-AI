@@ -16,42 +16,51 @@ STEP_LABELS = {
 def _system_prompt_for_plan() -> str:
     return (
         "You are the expert analytical planning stage in a multi-step reasoning pipeline.\n"
-        "Your task: carefully analyze the user request and map out a step-by-step strategy to solve it.\n"
+        "Your task: carefully research the request and map out a grounded, step-by-step strategy.\n"
         "Instructions:\n"
-        "1. Break down the problem logically.\n"
-        "2. Identify any edge cases, constraints, or complexities.\n"
-        "3. Provide a clear, actionable roadmap using bullet points.\n"
-        "4. DO NOT provide the final answer or write the actual solution. Focus entirely on HOW to solve it."
+        "1. GROUNDED RESEARCH: Start by identifying the core requirements, necessary technologies, and architectural dependencies.\n"
+        "2. LOGICAL BREAKDOWN: Use numbered pseudocode to represent execution steps. Group tasks by component or layer.\n"
+        "3. EDGE CASES: Explicitly identify 3-5 likely edge cases (e.g., empty states, timeouts, auth failures) and integrate them into the plan.\n"
+        "4. DESIGN AESTHETICS: If the task involves UI, plan for 'Rich Aesthetics'—vibrant palettes, modern typography, and dynamic micro-animations.\n"
+        "5. VERIFICATION PLAN: Include specific criteria for success and a strategy for testing each step.\n"
+        "6. DO NOT provide the final answer. Focus entirely on the technical roadmap and 'HOW' to solve it."
     )
 
 
 def _system_prompt_for_execute(mode: str) -> str:
+    # 'hard' mode emphasizes rigor, symbol tracing, and strict adherence to conventions
     if mode == "hard":
         return (
             "You are the expert execution stage in a reasoning pipeline.\n"
-            "Your task: follow the provided plan strictly to formulate the most comprehensive and accurate draft answer possible.\n"
+            "Your task: follow the provided plan with absolute technical rigor to produce a comprehensive solution.\n"
             "Instructions:\n"
-            "1. Think step-by-step, reasoning thoroughly based on the provided plan.\n"
-            "2. Ensure all constraints and requirements from the user request are fully met.\n"
-            "3. Be highly detailed, explicit, and rigorous in your execution.\n"
-            "4. Leave no ambiguity or gaps in your draft solution."
+            "1. PLAN ADHERENCE: Abide strictly by the provided technical roadmap. If complexity requires a design change, note it clearly.\n"
+            "2. CONVENTION MIMICRY: Mirror the project's existing code style, naming conventions, and idiomatic patterns. NEVER assume a library is available—verify usage first.\n"
+            "3. SYMBOL TRACING: Trace every symbol to its definition and usage to ensure complete consistency across the codebase.\n"
+            "4. STEP-BY-STEP REASONING: Think through the implementation logic out loud to ensure all edge cases identified in the plan are handled.\n"
+            "5. DEFENSIVE SECURITY: Apply security best practices—sanitize inputs, avoid logging PII, and protect sensitive credentials.\n"
+            "6. FULL OUTPUT: Provide the complete, functional solution without gaps or placeholders."
         )
 
+    # Standard mode focuses on high polish and direct utility
     return (
         "You are the expert execution stage in a reasoning pipeline. "
         "Use the provided plan to smoothly produce a final, highly polished, and directly useful user-facing answer. "
-        "Think step-by-step to ensure accuracy, but keep the final output clean and thorough."
+        "Mimic existing conventions and trace all logic dependencies to ensure accuracy. "
+        "Think step-by-step but keep the final output clean, idiomatic, and ready for use."
     )
 
 
 def _system_prompt_for_critique() -> str:
     return (
         "You are the expert critique and revision stage in a reasoning pipeline.\n"
-        "Your task: rigorously review the draft answer against the original user request and the plan.\n"
+        "Your task: rigorously audit the draft answer against the original request, the technical plan, and engineering standards.\n"
         "Instructions:\n"
-        "1. Actively look for factual mistakes, weak logic, omissions, or failure to follow constraints.\n"
-        "2. Synthesize your corrections into a significantly improved, superior final response.\n"
-        "3. Output ONLY the improved final answer. Do not include any meta-commentary, explanations of what you changed, or introductory/concluding filler."
+        "1. DIFFERENTIAL REVIEW: Review all modifications for factual errors, weak logic, or failure to follow constraints.\n"
+        "2. VERIFICATION CHECK: Confirm the solution meets the 'Verification Plan' from the planning stage and handles all identified edge cases.\n"
+        "3. OMISSIONS & LOGIC: Actively look for missed references, inconsistent naming, or unoptimized logic.\n"
+        "4. SUPERIOR SYNTHESIS: Consolidate all corrections into a single, superior final response that is significantly improved.\n"
+        "5. NO META-COMMENTARY: Output ONLY the improved final answer. Do not include introductory filler, summaries of changes, or explanations."
     )
 
 
