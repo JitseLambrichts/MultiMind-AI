@@ -442,16 +442,18 @@ async function streamChat(message) {
   assistant.root.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
-document.querySelectorAll(".mode-button").forEach((button) => {
-  button.addEventListener("click", () => {
-    document
-      .querySelectorAll(".mode-button")
-      .forEach((node) => node.classList.remove("active"));
-    button.classList.add("active");
-    state.selectedMode = button.dataset.mode;
-    setStatus(`Reasoning mode set to ${state.selectedMode}.`);
+if (modeToggle) {
+  modeToggle.querySelectorAll(".mode-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      modeToggle
+        .querySelectorAll(".mode-button")
+        .forEach((node) => node.classList.remove("active"));
+      button.classList.add("active");
+      state.selectedMode = button.dataset.mode;
+      setStatus(`Reasoning mode set to ${state.selectedMode}.`);
+    });
   });
-});
+}
 
 if (mainTabs) {
   mainTabs.addEventListener("click", (e) => {
@@ -475,7 +477,9 @@ if (mainTabs) {
         heroTitle.textContent = "Make your local models reason";
 
         // Restore previous standard mode or default to hard
-        const activeModeBtn = document.querySelector(".mode-button.active");
+        const activeModeBtn = modeToggle
+          ? modeToggle.querySelector(".mode-button.active")
+          : null;
         state.selectedMode = activeModeBtn
           ? activeModeBtn.dataset.mode
           : "hard";
