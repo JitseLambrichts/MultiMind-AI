@@ -1,7 +1,7 @@
 <div align="center">
   <h1>🧠 MultiMind AI</h1>
   <p>
-    <b>A local-first web UI that adds a reasoning pipeline on top of small local models.</b>
+    <b>A local-first web UI that adds sequential reasoning pipelines and parallel expert councils on top of small local models.</b>
   </p>
   
   [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
@@ -11,25 +11,24 @@
   [![LM Studio Supported](https://img.shields.io/badge/LM_Studio-Supported-ff69b4.svg)](https://lmstudio.ai/)
 </div>
 
-![Image](https://github.com/user-attachments/assets/7b745a2f-6227-46fc-b4f0-47b2e58a0964)
+![Image](https://github.com/user-attachments/assets/8d34117a-542d-4154-a140-767fdda25ec8)
 
 <br/>
 
-MultiMind AI acts as an intelligent reasoning pipeline for your local AI models. It effortlessly auto-discovers endpoints like Ollama and LM Studio (OpenAI-compatible) and lets you orchestrate dedicated models for different logical phases: **Planning**, **Execution**, and **Critique**.
+MultiMind AI bridges the gap between small local models and complex reasoning. It effortlessly auto-discovers endpoints like Ollama and LM Studio (OpenAI-compatible) and lets you deploy dual-architecture strategies: a sequential **Thinking Pipeline** (Planning, Execution, Critique) or a parallel **Agent Council** (Expert Advisors & Lead Judge).
 
 ---
 
 ## ✨ Features
 
-- **🧠 Adaptive Reasoning Modes**: Toggle between _Off_, _Medium_, and _Hard_ modes to dictate the depth of the model's reflection.
+- **🧠 Thinking Pipeline**: Elevate smaller models with dedicated **Planning**, **Execution**, and **Critique** phases.
+- **🏛 Agent Council**: Deploy a committee of expert models in parallel. Several 'Advisors' provide independent perspectives, synthesized by a **Lead Judge** into a single superior response.
 - **🔌 Zero-Config Auto-Discovery**:
   - Automatically hooks into local **Ollama** endpoints (`http://127.0.0.1:11434`).
   - Supports optional discovery for **LM Studio** (`http://127.0.0.1:1234`).
-- **🎯 Precision Model Mapping**: Assign distinct models to handle the different stages of thought (`plan`, `execute`, and `critique`).
+- **🎯 Precision Model Mapping**: Assign distinct models to handle the different stages of thought or council roles.
 - **💬 Immersive UI**: Enjoy a streaming timeline interface with collapsible "thought blocks" to keep your UI clean while the AI thinks.
-- **📝 Native Markdown & Math Support**:
-  - Final outputs are beautifully rendered as HTML in the chat view.
-  - Inline and block math equations are flawlessly typeset using a bundled local **KaTeX** build.
+- **📝 Native Markdown & Math Support**: Final outputs are rendered as HTML, with math equations typeset using a bundled local **KaTeX** build.
 - **⚡ Frictionless Setup**: Purely in-memory settings. Zero `.env` setup required for your first run.
 
 ## 🚀 Quick Start
@@ -78,13 +77,23 @@ MultiMind AI works seamlessly with standard local APIs:
 
 _If no provider is automatically detected, you can easily point the backend to your local OpenAI-compatible endpoint using the application's settings panel._
 
-## 💡 How It Works
+## 🧠 Thinking Pipeline (Sequential Reasoning)
 
-MultiMind AI splits inference into modular steps, elevating the capabilities of standard models:
+The sequential reasoning pipeline elevates the capabilities of standard models by splitting inference into modular steps:
 
-1. **Plan**: Formulates a structured approach to the prompt.
-2. **Execute**: Generates the primary response.
-3. **Critique (Hard Mode)**: Evaluates the execution pass as a rough draft and streams refined, critiqued output as the final answer.
+1.  **Plan**: Formulates a detailed technical roadmap to solve the user's request.
+2.  **Execute**: Implements the primary solution based on the established plan.
+3.  **Critique (Hard Mode)**: Rigorously audits the implementation for errors or omissions, delivering a refined, superior final answer.
+
+---
+
+## 🏛 Agent Council (Parallel Expert Consensus)
+
+For complex tasks requiring multiple perspectives, MultiMind AI offers the **Agent Council**. This architecture emphasizes parallel expertise over sequential steps:
+
+1.  **Parallel Advisors**: Multiple models process the user's request independently, providing diverse expert viewpoints.
+2.  **Diverse Perspectives**: Each advisor follows expert-level system prompts to ensure accurate, independent technical analysis.
+3.  **The Judge**: A final 'Lead Synthesizer' model reviews all advisor outputs, cross-examines their findings, resolves conflicts, and merges the best elements into a single definitive response.
 
 > 📝 **Note:** Chat history is intentionally in-memory only for the current MVP.
 
@@ -92,6 +101,7 @@ MultiMind AI splits inference into modular steps, elevating the capabilities of 
 
 We evaluated the performance of MultiMind AI's reasoning pipeline using a subset of 20 questions from the GSM8K dataset. The results demonstrate a clear improvement in model accuracy when utilizing the different reasoning modes.
 <br>
+
 <div align="center">
     <img width=65% alt="Image" src="https://github.com/user-attachments/assets/3df2b12f-97c1-4cb2-8b7d-b49a0c5c379c" />
 </div>
