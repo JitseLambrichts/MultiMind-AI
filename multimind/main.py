@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from multimind.config import APP_NAME, DEFAULT_HOST, DEFAULT_PORT, PIPELINE_STEPS, STATIC_DIR, TEMPLATE_DIR
 from multimind.discovery import ProviderInfo, discover_providers, normalize_base_url, select_default_provider
 from multimind.llm_client import LocalLLMClient
-from multimind.pipeline import run_pipeline
+from multimind.pipeline import run_pipeline, run_council_pipeline
 
 
 class SettingsPayload(BaseModel):
@@ -23,6 +23,8 @@ class SettingsPayload(BaseModel):
     provider_kind: str = "ollama"
     base_url: str = "http://127.0.0.1:11434"
     model_map: dict[str, str] = Field(default_factory=dict)
+    council_models: list[str] = Field(default_factory=list)
+    judge_model: str = ""
 
 
 class ChatRequest(BaseModel):
@@ -78,6 +80,9 @@ async def _refresh_runtime() -> None:
             runtime.settings.provider_kind = selected_provider.kind
             runtime.settings.base_url = selected_provider.base_url
             runtime.settings.model_map = _default_model_map(selected_provider)
+            default_model = selected_provider.models[0] if selected_provider.models else ""
+            runtime.settings.council_models = [default_model] if default_model else []
+            runtime.settings.judge_model = default_model
         return
 
     matching_provider = next(
@@ -92,6 +97,16 @@ async def _refresh_runtime() -> None:
 
     fallback_map = _default_model_map(matching_provider or selected_provider)
     runtime.settings.model_map = _merge_model_map(runtime.settings.model_map, fallback_map)
+
+    if not runtime.settings.council_models:
+        default_model = (matching_provider or selected_provider).models[0] if (matching_provider or selected_provider) and (matching_provider or selected_provider).models else ""
+        if default_model:
+            runtime.settings.council_models = [default_model]
+
+    if not runtime.settings.judge_model:
+        default_model = (matching_provider or selected_provider).models[0] if (matching_provider or selected_provider) and (matching_provider or selected_provider).models else ""
+        if default_model:
+            runtime.settings.judge_model = default_model
 
 
 @app.on_event("startup")
@@ -135,6 +150,8 @@ async def update_settings(payload: SettingsPayload) -> JSONResponse:
         provider_kind=payload.provider_kind,
         base_url=normalize_base_url(payload.base_url),
         model_map=_merge_model_map(payload.model_map, runtime.settings.model_map),
+        council_models=payload.council_models or runtime.settings.council_models,
+        judge_model=payload.judge_model or runtime.settings.judge_model,
     )
     return JSONResponse(runtime.to_dict())
 
@@ -146,23 +163,40 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     message = request.message.strip()
     mode = request.mode.strip().lower()
 
-    if mode not in {"off", "medium", "hard"}:
-        raise HTTPException(status_code=400, detail="Mode must be one of off, medium, or hard.")
+    if mode not in {"off", "medium", "hard", "council"}:
+        raise HTTPException(status_code=400, detail="Mode must be one of off, medium, hard, or council.")
 
     if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
+    if mode == "council":
+        if not settings.council_models:
+            raise HTTPException(status_code=400, detail="At least one council model must be selected.")
+        if not settings.judge_model:
+            raise HTTPException(status_code=400, detail="A judge model must be selected.")
+
     async def event_stream():
         try:
-            async for event in run_pipeline(
-                client=app.state.llm_client,
-                provider_kind=settings.provider_kind,
-                base_url=settings.base_url,
-                model_map=settings.model_map,
-                user_message=message,
-                mode=mode,
-            ):
-                yield json.dumps(event) + "\n"
+            if mode == "council":
+                async for event in run_council_pipeline(
+                    client=app.state.llm_client,
+                    provider_kind=settings.provider_kind,
+                    base_url=settings.base_url,
+                    council_models=settings.council_models,
+                    judge_model=settings.judge_model,
+                    user_message=message,
+                ):
+                    yield json.dumps(event) + "\n"
+            else:
+                async for event in run_pipeline(
+                    client=app.state.llm_client,
+                    provider_kind=settings.provider_kind,
+                    base_url=settings.base_url,
+                    model_map=settings.model_map,
+                    user_message=message,
+                    mode=mode,
+                ):
+                    yield json.dumps(event) + "\n"
         except Exception as exc:
             yield json.dumps({"type": "error", "message": str(exc)}) + "\n"
 

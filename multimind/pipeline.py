@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 
 from multimind.config import PIPELINE_STEPS
@@ -12,6 +13,50 @@ STEP_LABELS = {
     "execute": "Executing",
     "critique": "Critiquing",
 }
+
+def _system_prompt_for_council_member() -> str:
+    return (
+        "You are an expert advisor on an AI Agent Council.\n"
+        "Your task: provide the most accurate, rigorous, and comprehensive answer to the user's request.\n"
+        "Instructions:\n"
+        "1. DEEP REASONING: Think step-by-step. Break down the problem, identify core assumptions, and consider potential edge cases.\n"
+        "2. EXPERT PERSPECTIVE: Bring deep technical expertise to bear. Highlight nuances, trade-offs, or alternative approaches.\n"
+        "3. STRUCTURE: Organize your response logically. If providing code or steps, ensure they are complete and verifiable.\n"
+        "4. DIRECTNESS: Be direct. Avoid introductory filler or pleasantries. Get straight to the analysis and solution."
+    )
+
+def _system_prompt_for_judge() -> str:
+    return (
+        "You are the Lead Synthesizer and Judge of an AI Agent Council.\n"
+        "Your task: critically review the answers provided by several expert advisors and synthesize them into a single, definitive, and superior final answer.\n"
+        "Instructions:\n"
+        "1. CRITICAL ANALYSIS: Evaluate each advisor's response. Identify the strongest arguments, most accurate facts, and most elegant solutions.\n"
+        "2. CONFLICT RESOLUTION: If advisors disagree, rigorously cross-examine their claims. Resolve contradictions using logic, established facts, and technical accuracy.\n"
+        "3. SUPERIOR SYNTHESIS: Do not just copy-paste. Combine the best elements of all responses into a cohesive, comprehensive, and perfectly structured final answer that is better than any individual advisor's response.\n"
+        "4. NO META-COMMENTARY: Output ONLY the final answer. Do not include summaries of the council's process, or phrases like 'Advisor 1 said'. Just provide the definitive solution."
+    )
+
+def _build_messages_for_council_member(user_message: str) -> list[dict[str, str]]:
+    return [
+        {"role": "system", "content": _system_prompt_for_council_member()},
+        {"role": "user", "content": user_message},
+    ]
+
+def _build_messages_for_judge(user_message: str, council_answers: list[str]) -> list[dict[str, str]]:
+    answers_text = "\n\n---\n\n".join(
+        f"Advisor {i+1}:\n{answer}" for i, answer in enumerate(council_answers)
+    )
+    return [
+        {"role": "system", "content": _system_prompt_for_judge()},
+        {
+            "role": "user",
+            "content": (
+                f"User request:\n{user_message}\n\n"
+                f"Council Answers:\n{answers_text}\n\n"
+                "Provide the definitive final answer."
+            ),
+        },
+    ]
 
 def _system_prompt_for_plan() -> str:
     return (
@@ -108,6 +153,179 @@ def _pipeline_for_mode(mode: str) -> tuple[str, ...]:
         return ("plan", "execute")
     return PIPELINE_STEPS
 
+
+async def _stream_council_member(
+    client: LocalLLMClient,
+    provider_kind: str,
+    base_url: str,
+    model: str,
+    index: int,
+    user_message: str,
+    queue: asyncio.Queue,
+) -> None:
+    step_id = f"council-{index}"
+    try:
+        await queue.put(
+            {
+                "type": "step-start",
+                "step": step_id,
+                "label": f"Advisor {index + 1}",
+                "model": model,
+                "thought": True,
+            }
+        )
+
+        messages = _build_messages_for_council_member(user_message)
+        buffer: list[str] = []
+        partial_content = ""
+
+        async for token in client.stream_chat(
+            provider_kind=provider_kind,
+            base_url=base_url,
+            model=model,
+            messages=messages,
+        ):
+            buffer.append(token)
+            partial_content += token
+            await queue.put(
+                {
+                    "type": "step-delta",
+                    "step": step_id,
+                    "delta": token,
+                    "content": partial_content,
+                    "html": render_markdown_to_html(partial_content),
+                }
+            )
+
+        final_content = "".join(buffer).strip()
+        await queue.put(
+            {
+                "type": "step-complete",
+                "step": step_id,
+                "content": final_content,
+                "html": render_markdown_to_html(final_content),
+            }
+        )
+        await queue.put({"type": "internal-member-done", "index": index, "content": final_content})
+
+    except Exception as exc:
+        await queue.put(
+            {
+                "type": "step-complete",
+                "step": step_id,
+                "content": f"Failed: {exc}",
+                "html": f"<p>Failed: {exc}</p>",
+            }
+        )
+        await queue.put({"type": "internal-member-done", "index": index, "content": ""})
+
+async def run_council_pipeline(
+    *,
+    client: LocalLLMClient,
+    provider_kind: str,
+    base_url: str,
+    council_models: list[str],
+    judge_model: str,
+    user_message: str,
+) -> AsyncIterator[dict]:
+    steps = [f"council-{i}" for i in range(len(council_models))] + ["judge"]
+    yield {"type": "run-start", "mode": "council", "steps": steps}
+
+    queue: asyncio.Queue = asyncio.Queue()
+    tasks = [
+        asyncio.create_task(
+            _stream_council_member(
+                client, provider_kind, base_url, model, i, user_message, queue
+            )
+        )
+        for i, model in enumerate(council_models)
+    ]
+
+    council_answers: list[str] = [""] * len(council_models)
+    completed_members = 0
+
+    while completed_members < len(council_models):
+        event = await queue.get()
+        if event["type"] == "internal-member-done":
+            council_answers[event["index"]] = event["content"]
+            completed_members += 1
+        else:
+            yield event
+
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Judge execution
+    yield {
+        "type": "step-start",
+        "step": "judge",
+        "label": "Judge",
+        "model": judge_model,
+        "thought": False,
+    }
+    yield {
+        "type": "answer-start",
+        "step": "judge",
+        "label": "Judge",
+        "model": judge_model,
+    }
+
+    messages = _build_messages_for_judge(user_message, [ans for ans in council_answers if ans])
+    buffer: list[str] = []
+    partial_content = ""
+
+    try:
+        async for token in client.stream_chat(
+            provider_kind=provider_kind,
+            base_url=base_url,
+            model=judge_model,
+            messages=messages,
+        ):
+            buffer.append(token)
+            partial_content += token
+            yield {
+                "type": "step-delta",
+                "step": "judge",
+                "delta": token,
+                "content": partial_content,
+                "html": render_markdown_to_html(partial_content),
+            }
+            yield {
+                "type": "answer-delta",
+                "step": "judge",
+                "delta": token,
+                "content": partial_content,
+                "html": render_markdown_to_html(partial_content),
+            }
+
+        final_content = "".join(buffer).strip()
+        yield {
+            "type": "step-complete",
+            "step": "judge",
+            "content": final_content,
+            "html": render_markdown_to_html(final_content),
+        }
+        yield {
+            "type": "answer-complete",
+            "step": "judge",
+            "content": final_content,
+            "html": render_markdown_to_html(final_content),
+        }
+    except Exception as exc:
+        yield {
+            "type": "step-complete",
+            "step": "judge",
+            "content": f"Judge failed: {exc}",
+            "html": f"<p>Judge failed: {exc}</p>",
+        }
+        yield {
+            "type": "answer-complete",
+            "step": "judge",
+            "content": f"Judge failed: {exc}",
+            "html": f"<p>Judge failed: {exc}</p>",
+        }
+
+    outputs = {"final": final_content if "final_content" in locals() else ""}
+    yield {"type": "run-complete", "outputs": outputs}
 
 async def run_pipeline(
     *,

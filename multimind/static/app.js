@@ -2,6 +2,7 @@ const state = {
   providers: [],
   settings: null,
   selectedMode: "hard",
+  activeTab: "standard",
 };
 
 const chatLog = document.querySelector("#chatLog");
@@ -12,9 +13,16 @@ const baseUrlInput = document.querySelector("#baseUrl");
 const modelPlan = document.querySelector("#modelPlan");
 const modelExecute = document.querySelector("#modelExecute");
 const modelCritique = document.querySelector("#modelCritique");
+const addCouncilMemberBtn = document.querySelector("#addCouncilMember");
+const judgeModelInput = document.querySelector("#judgeModel");
 const modelSuggestions = document.querySelector("#modelSuggestions");
 const promptInput = document.querySelector("#promptInput");
 const sendButton = document.querySelector("#sendButton");
+const mainTabs = document.querySelector("#mainTabs");
+const standardSettings = document.querySelector("#standardSettings");
+const councilSettings = document.querySelector("#councilSettings");
+const modeToggle = document.querySelector("#modeToggle");
+const heroTitle = document.querySelector("#heroTitle");
 
 function renderMath(element) {
   if (!window.renderMathInElement) {
@@ -136,6 +144,49 @@ function populateModelSuggestions() {
   });
 }
 
+function populateCouncilModels(selectedModels) {
+  const container = document.querySelector("#councilMembersContainer");
+  const label = container.querySelector("label");
+  container.innerHTML = "";
+  container.appendChild(label);
+
+  const modelsArray =
+    selectedModels && selectedModels.length ? selectedModels : [""];
+  modelsArray.forEach((model) => {
+    addCouncilMemberInput(model);
+  });
+}
+
+function addCouncilMemberInput(value = "") {
+  const container = document.querySelector("#councilMembersContainer");
+
+  const wrapper = document.createElement("div");
+  wrapper.style.display = "flex";
+  wrapper.style.gap = "0.5rem";
+  wrapper.style.marginBottom = "0.5rem";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.setAttribute("list", "modelSuggestions");
+  input.placeholder = "llama3.2:3b";
+  input.value = value;
+  input.className = "council-member-input";
+  input.style.flex = "1";
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "ghost-button icon-button";
+  removeBtn.innerHTML = "&times;";
+  removeBtn.title = "Remove advisor";
+  removeBtn.style.padding = "0.25rem 0.5rem";
+  removeBtn.style.fontSize = "1.25rem";
+  removeBtn.addEventListener("click", () => wrapper.remove());
+
+  wrapper.appendChild(input);
+  wrapper.appendChild(removeBtn);
+  container.appendChild(wrapper);
+}
+
 function renderSettings() {
   if (!state.settings) {
     return;
@@ -149,6 +200,9 @@ function renderSettings() {
   populateModelInput(modelPlan, state.settings.model_map.plan);
   populateModelInput(modelExecute, state.settings.model_map.execute);
   populateModelInput(modelCritique, state.settings.model_map.critique);
+
+  populateCouncilModels(state.settings.council_models);
+  populateModelInput(judgeModelInput, state.settings.judge_model);
 }
 
 async function loadSettings(endpoint = "/api/settings") {
@@ -190,9 +244,17 @@ function syncProviderFields() {
   populateModelInput(modelPlan, state.settings?.model_map.plan);
   populateModelInput(modelExecute, state.settings?.model_map.execute);
   populateModelInput(modelCritique, state.settings?.model_map.critique);
+  populateCouncilModels(state.settings?.council_models);
+  populateModelInput(judgeModelInput, state.settings?.judge_model);
 }
 
 async function saveSettings() {
+  const selectedCouncilModels = Array.from(
+    document.querySelectorAll(".council-member-input"),
+  )
+    .map((input) => input.value.trim())
+    .filter((v) => v !== "");
+
   const payload = {
     provider_name: providerSelect.value,
     provider_kind: providerKind.value,
@@ -202,6 +264,8 @@ async function saveSettings() {
       execute: modelExecute.value,
       critique: modelCritique.value,
     },
+    council_models: selectedCouncilModels,
+    judge_model: judgeModelInput.value,
   };
 
   const response = await fetch("/api/settings", {
@@ -389,6 +453,37 @@ document.querySelectorAll(".mode-button").forEach((button) => {
   });
 });
 
+if (mainTabs) {
+  mainTabs.addEventListener("click", (e) => {
+    if (e.target.tagName === "BUTTON") {
+      document
+        .querySelectorAll(".tab-button")
+        .forEach((btn) => btn.classList.remove("active"));
+      e.target.classList.add("active");
+      state.activeTab = e.target.dataset.tab;
+
+      if (state.activeTab === "council") {
+        standardSettings.style.display = "none";
+        councilSettings.style.display = "block";
+        modeToggle.style.display = "none";
+        heroTitle.textContent = "Consult the Agent Council";
+        state.selectedMode = "council";
+      } else {
+        standardSettings.style.display = "block";
+        councilSettings.style.display = "none";
+        modeToggle.style.display = "flex";
+        heroTitle.textContent = "Make your local models reason";
+
+        // Restore previous standard mode or default to hard
+        const activeModeBtn = document.querySelector(".mode-button.active");
+        state.selectedMode = activeModeBtn
+          ? activeModeBtn.dataset.mode
+          : "hard";
+      }
+    }
+  });
+}
+
 const appShell = document.querySelector("#appShell");
 const toggleSidebar = document.querySelector("#toggleSidebar");
 if (toggleSidebar && appShell) {
@@ -399,6 +494,12 @@ if (toggleSidebar && appShell) {
 
 providerSelect.addEventListener("change", syncProviderFields);
 document.querySelector("#saveSettings").addEventListener("click", saveSettings);
+if (addCouncilMemberBtn) {
+  addCouncilMemberBtn.addEventListener("click", () =>
+    addCouncilMemberInput(""),
+  );
+}
+
 document
   .querySelector("#refreshProviders")
   .addEventListener("click", async () => {
