@@ -40,6 +40,14 @@
         </div>
 
         <div class="settings-content">
+          <div class="top-tabs" id="mainTabs" style="margin-bottom: 1rem">
+            <button class="tab-button active" data-tab="standard" type="button">
+              Thinking
+            </button>
+            <button class="tab-button" data-tab="council" type="button">
+              Agent Council
+            </button>
+          </div>
           <p class="lede">
             Small local models get a stricter process: plan, execute, then
             critique.
@@ -73,7 +81,7 @@
             </label>
           </div>
 
-          <div class="settings-group">
+          <div class="settings-group" id="standardSettings">
             <h2>Per-step models</h2>
             <label>
               <span>Planning</span>
@@ -104,6 +112,36 @@
             </label>
           </div>
 
+          <div
+            class="settings-group"
+            id="councilSettings"
+            style="display: none"
+          >
+            <h2>Agent Council</h2>
+            <div id="councilMembersContainer">
+              <label>
+                <span>Council Members</span>
+              </label>
+            </div>
+            <button
+              id="addCouncilMember"
+              class="ghost-button"
+              type="button"
+              style="margin-bottom: 1rem; width: 100%"
+            >
+              + Add Advisor
+            </button>
+            <label>
+              <span>Judge Model</span>
+              <input
+                id="judgeModel"
+                type="text"
+                list="modelSuggestions"
+                placeholder="llama3.2:3b"
+              />
+            </label>
+          </div>
+
           <datalist id="modelSuggestions"></datalist>
 
           <button id="saveSettings" class="primary-button" type="button">
@@ -118,7 +156,7 @@
       <main class="panel workspace-panel">
         <section class="hero">
           <div>
-            <h2>Make your local models reason</h2>
+            <h2 id="heroTitle">Make your local models reason</h2>
           </div>
           <div
             class="mode-toggle"
