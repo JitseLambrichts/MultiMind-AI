@@ -1,7 +1,7 @@
 const state = {
   providers: [],
   settings: null,
-  selectedMode: "hard",
+  selectedMode: "off",
   activeTab: "standard",
 };
 
@@ -10,6 +10,8 @@ const statusBar = document.querySelector("#statusBar");
 const providerSelect = document.querySelector("#providerSelect");
 const providerKind = document.querySelector("#providerKind");
 const baseUrlInput = document.querySelector("#baseUrl");
+const ollamaThinkInput = document.querySelector("#ollamaThink");
+const ollamaThinkLabel = document.querySelector("#ollamaThinkLabel");
 const modelPlan = document.querySelector("#modelPlan");
 const modelExecute = document.querySelector("#modelExecute");
 const modelCritique = document.querySelector("#modelCritique");
@@ -118,6 +120,11 @@ function renderProviders() {
   }
 }
 
+function syncProviderSpecificSettings() {
+  const isOllama = providerKind.value === "ollama";
+  ollamaThinkLabel.style.display = isOllama ? "flex" : "none";
+}
+
 function modelOptionsForSelectedProvider() {
   const selected = state.providers.find(
     (provider) => provider.name === providerSelect.value,
@@ -195,6 +202,8 @@ function renderSettings() {
   renderProviders();
   providerKind.value = state.settings.provider_kind;
   baseUrlInput.value = state.settings.base_url;
+  ollamaThinkInput.checked = Boolean(state.settings.ollama_think);
+  syncProviderSpecificSettings();
 
   populateModelSuggestions();
   populateModelInput(modelPlan, state.settings.model_map.plan);
@@ -240,6 +249,7 @@ function syncProviderFields() {
 
   providerKind.value = selected.kind;
   baseUrlInput.value = selected.base_url;
+  syncProviderSpecificSettings();
   populateModelSuggestions();
   populateModelInput(modelPlan, state.settings?.model_map.plan);
   populateModelInput(modelExecute, state.settings?.model_map.execute);
@@ -259,6 +269,7 @@ async function saveSettings() {
     provider_name: providerSelect.value,
     provider_kind: providerKind.value,
     base_url: baseUrlInput.value,
+    ollama_think: ollamaThinkInput.checked,
     model_map: {
       plan: modelPlan.value,
       execute: modelExecute.value,
@@ -314,13 +325,19 @@ function createStepCard(container, event) {
 
   const content = stepNode.querySelector('[data-role="stepContent"]');
   const toggle = stepNode.querySelector('[data-role="stepToggle"]');
-  toggle.addEventListener("click", () => {
-    content.classList.toggle("collapsed");
-    step.isExpanded = !content.classList.contains("collapsed");
-    if (step.isExpanded) {
-      renderStepContent(step);
-    }
-  });
+  const showContent = event.thought !== false;
+
+  if (!showContent) {
+    content.remove();
+  } else {
+    toggle.addEventListener("click", () => {
+      content.classList.toggle("collapsed");
+      step.isExpanded = !content.classList.contains("collapsed");
+      if (step.isExpanded) {
+        renderStepContent(step);
+      }
+    });
+  }
 
   const step = {
     root: stepNode,
@@ -330,6 +347,7 @@ function createStepCard(container, event) {
     html: "",
     isExpanded: false,
     renderScheduled: false,
+    showContent,
   };
 
   container.timeline.appendChild(stepNode);
@@ -350,16 +368,20 @@ function updateStep(container, event) {
   if (event.type === "step-delta") {
     step.buffer = event.content ?? `${step.buffer}${event.delta}`;
     step.html = event.html ?? "";
-    scheduleStepRender(step);
+    if (step.showContent) {
+      scheduleStepRender(step);
+    }
   }
 
   if (event.type === "step-complete") {
     step.buffer = event.content;
     step.html = event.html ?? "";
-    if (step.renderScheduled) {
-      flushStepRender(step);
-    } else if (step.isExpanded) {
-      renderStepContent(step);
+    if (step.showContent) {
+      if (step.renderScheduled) {
+        flushStepRender(step);
+      } else if (step.isExpanded) {
+        renderStepContent(step);
+      }
     }
     step.state.textContent = "Done";
   }
@@ -476,13 +498,13 @@ if (mainTabs) {
         modeToggle.style.display = "flex";
         heroTitle.textContent = "Make your local models reason";
 
-        // Restore previous standard mode or default to hard
+        // Restore previous standard mode or default to off
         const activeModeBtn = modeToggle
           ? modeToggle.querySelector(".mode-button.active")
           : null;
         state.selectedMode = activeModeBtn
           ? activeModeBtn.dataset.mode
-          : "hard";
+          : "off";
       }
     }
   });
@@ -497,6 +519,7 @@ if (toggleSidebar && appShell) {
 }
 
 providerSelect.addEventListener("change", syncProviderFields);
+providerKind.addEventListener("change", syncProviderSpecificSettings);
 document.querySelector("#saveSettings").addEventListener("click", saveSettings);
 if (addCouncilMemberBtn) {
   addCouncilMemberBtn.addEventListener("click", () =>

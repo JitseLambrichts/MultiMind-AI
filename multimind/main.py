@@ -22,6 +22,7 @@ class SettingsPayload(BaseModel):
     provider_name: str = ""
     provider_kind: str = "ollama"
     base_url: str = "http://127.0.0.1:11434"
+    ollama_think: bool = False
     model_map: dict[str, str] = Field(default_factory=dict)
     council_models: list[str] = Field(default_factory=list)
     judge_model: str = ""
@@ -149,6 +150,7 @@ async def update_settings(payload: SettingsPayload) -> JSONResponse:
         provider_name=payload.provider_name,
         provider_kind=payload.provider_kind,
         base_url=normalize_base_url(payload.base_url),
+        ollama_think=payload.ollama_think,
         model_map=_merge_model_map(payload.model_map, runtime.settings.model_map),
         council_models=payload.council_models or runtime.settings.council_models,
         judge_model=payload.judge_model or runtime.settings.judge_model,
@@ -184,6 +186,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
                     base_url=settings.base_url,
                     council_models=settings.council_models,
                     judge_model=settings.judge_model,
+                    ollama_think=settings.ollama_think,
                     user_message=message,
                 ):
                     yield json.dumps(event) + "\n"
@@ -193,6 +196,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
                     provider_kind=settings.provider_kind,
                     base_url=settings.base_url,
                     model_map=settings.model_map,
+                    ollama_think=settings.ollama_think,
                     user_message=message,
                     mode=mode,
                 ):

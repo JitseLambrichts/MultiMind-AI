@@ -33,8 +33,9 @@ def _system_prompt_for_judge() -> str:
         "Instructions:\n"
         "1. CRITICAL ANALYSIS: Evaluate each advisor's response. Identify the strongest arguments, most accurate facts, and most elegant solutions.\n"
         "2. CONFLICT RESOLUTION: If advisors disagree, rigorously cross-examine their claims. Resolve contradictions using logic, established facts, and technical accuracy.\n"
-        "3. SUPERIOR SYNTHESIS: Do not just copy-paste. Combine the best elements of all responses into a cohesive, comprehensive, and perfectly structured final answer that is better than any individual advisor's response.\n"
-        "4. NO META-COMMENTARY: Output ONLY the final answer. Do not include summaries of the council's process, or phrases like 'Advisor 1 said'. Just provide the definitive solution."
+        "3. SUPERIOR SYNTHESIS: Do not just copy-paste. Merge overlapping points once, remove duplicates aggressively, and produce one concise answer with no repeated sentences or headings.\n"
+        "4. NOVELTY THRESHOLD: If two advisors say the same thing, keep the clearest version and discard the rest. Do not restate the same conclusion with different wording.\n"
+        "5. NO META-COMMENTARY: Output ONLY the final answer. Do not include summaries of the council's process, or phrases like 'Advisor 1 said'. Just provide the definitive solution."
     )
 
 def _build_messages_for_council_member(user_message: str) -> list[dict[str, str]]:
@@ -93,7 +94,7 @@ def _system_prompt_for_execute(mode: str) -> str:
         "You are the expert execution stage in a reasoning pipeline. "
         "Use the provided plan to smoothly produce a final, highly polished, and directly useful user-facing answer. "
         "Mimic existing conventions and trace all logic dependencies to ensure accuracy. "
-        "Think step-by-step but keep the final output clean, idiomatic, and ready for use."
+        "Think step-by-step but keep the final output clean, idiomatic, non-redundant, and ready for use."
     )
 
 
@@ -105,8 +106,9 @@ def _system_prompt_for_critique() -> str:
         "1. DIFFERENTIAL REVIEW: Review all modifications for factual errors, weak logic, or failure to follow constraints.\n"
         "2. VERIFICATION CHECK: Confirm the solution meets the 'Verification Plan' from the planning stage and handles all identified edge cases.\n"
         "3. OMISSIONS & LOGIC: Actively look for missed references, inconsistent naming, or unoptimized logic.\n"
-        "4. SUPERIOR SYNTHESIS: Consolidate all corrections into a single, superior final response that is significantly improved.\n"
-        "5. NO META-COMMENTARY: Output ONLY the improved final answer. Do not include introductory filler, summaries of changes, or explanations."
+        "4. DIFFERENTIAL OUTPUT: Preserve the draft when it is already correct. Only rewrite the parts that need correction, then emit one final cleaned answer with duplicated wording removed.\n"
+        "5. BREVITY UNDER CONTROL: Do not pad. If the draft already answered a point, do not restate it unless needed for correction.\n"
+        "6. NO META-COMMENTARY: Output ONLY the improved final answer. Do not include introductory filler, summaries of changes, or explanations."
     )
 
 
@@ -161,6 +163,7 @@ async def _stream_council_member(
     base_url: str,
     model: str,
     index: int,
+    ollama_think: bool,
     user_message: str,
     queue: asyncio.Queue,
 ) -> None:
@@ -185,6 +188,7 @@ async def _stream_council_member(
             base_url=base_url,
             model=model,
             messages=messages,
+            ollama_think=ollama_think,
         ):
             buffer.append(token)
             partial_content += token
@@ -227,6 +231,7 @@ async def run_council_pipeline(
     base_url: str,
     council_models: list[str],
     judge_model: str,
+    ollama_think: bool,
     user_message: str,
 ) -> AsyncIterator[dict]:
     steps = [f"council-{i}" for i in range(len(council_models))] + ["judge"]
@@ -236,7 +241,7 @@ async def run_council_pipeline(
     tasks = [
         asyncio.create_task(
             _stream_council_member(
-                client, provider_kind, base_url, model, i, user_message, queue
+                client, provider_kind, base_url, model, i, ollama_think, user_message, queue
             )
         )
         for i, model in enumerate(council_models)
@@ -280,6 +285,7 @@ async def run_council_pipeline(
             base_url=base_url,
             model=judge_model,
             messages=messages,
+            ollama_think=ollama_think,
         ):
             buffer.append(token)
             partial_content += token
@@ -334,6 +340,7 @@ async def run_pipeline(
     provider_kind: str,
     base_url: str,
     model_map: dict[str, str],
+    ollama_think: bool,
     user_message: str,
     mode: str,
 ) -> AsyncIterator[dict]:
@@ -352,7 +359,7 @@ async def run_pipeline(
             "step": step,
             "label": STEP_LABELS[step],
             "model": model,
-            "thought": step != "execute" or mode == "hard",
+            "thought": step == "plan" or (step == "execute" and mode == "hard"),
         }
 
         if step == "execute" and mode != "hard":
@@ -378,6 +385,7 @@ async def run_pipeline(
             base_url=base_url,
             model=model,
             messages=messages,
+            ollama_think=ollama_think,
         ):
             buffer.append(token)
             partial_content += token
