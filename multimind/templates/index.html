@@ -93,6 +93,13 @@
                 placeholder="http://127.0.0.1:11434"
               />
             </label>
+            <div id="ollamaThinkLabel" class="toggle-row">
+              <span>Ollama thinking</span>
+              <label class="switch">
+                <input id="ollamaThink" type="checkbox" />
+                <span class="slider round"></span>
+              </label>
+            </div>
           </div>
 
           <div class="settings-group" id="standardSettings">
@@ -178,13 +185,13 @@
             role="tablist"
             aria-label="Reasoning mode"
           >
-            <button class="mode-button" data-mode="off" type="button">
+            <button class="mode-button active" data-mode="off" type="button">
               Off
             </button>
             <button class="mode-button" data-mode="medium" type="button">
               Medium
             </button>
-            <button class="mode-button active" data-mode="hard" type="button">
+            <button class="mode-button" data-mode="hard" type="button">
               Hard
             </button>
           </div>
