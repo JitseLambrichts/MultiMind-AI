@@ -61,6 +61,14 @@
             >
               Council
             </button>
+            <button
+              class="mode-button tab-button"
+              data-tab="org"
+              type="button"
+              style="flex: 1"
+            >
+              Org Chart
+            </button>
           </div>
           <p class="lede">
             Small local models get a stricter process: plan, execute, then
@@ -163,6 +171,23 @@
             </label>
           </div>
 
+          <div
+            class="settings-group"
+            id="orgSettings"
+            style="display: none"
+          >
+            <h2>Org Chart</h2>
+            <label>
+              <span>Model (all agents)</span>
+              <input
+                id="orgModel"
+                type="text"
+                list="modelSuggestions"
+                placeholder="llama3.2:3b"
+              />
+            </label>
+          </div>
+
           <datalist id="modelSuggestions"></datalist>
 
           <button id="saveSettings" class="primary-button" type="button">
@@ -249,6 +274,34 @@
           <div class="step-content collapsed" data-role="stepContent"></div>
         </div>
       </section>
+    </template>
+
+    <template id="orgChartMessageTemplate">
+      <article class="message assistant-message">
+        <div class="message-header">
+          <span>Org Chart</span>
+          <span class="message-meta">Streaming</span>
+        </div>
+        <div class="org-chart" data-role="orgChart"></div>
+        <div class="final-answer" data-role="finalAnswer"></div>
+      </article>
+    </template>
+
+    <template id="orgNodeTemplate">
+      <div class="org-node" data-role="orgNode">
+        <button class="org-node-header" type="button" data-role="orgNodeToggle">
+          <div>
+            <div class="org-node-role" data-role="orgNodeRole"></div>
+            <div class="org-node-slug" data-role="orgNodeSlug"></div>
+          </div>
+          <div class="org-node-meta">
+            <span class="org-node-badge" data-role="orgNodeBadge">0 reports</span>
+            <span class="org-node-status" data-role="orgNodeStatus">Running</span>
+          </div>
+        </button>
+        <div class="org-node-output collapsed" data-role="orgNodeOutput"></div>
+        <div class="org-node-children" data-role="orgNodeChildren"></div>
+      </div>
     </template>
 
     <script defer src="/static/vendor/katex/katex.min.js"></script>

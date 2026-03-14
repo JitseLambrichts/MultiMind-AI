@@ -16,6 +16,7 @@ from multimind.config import APP_NAME, DEFAULT_HOST, DEFAULT_PORT, PIPELINE_STEP
 from multimind.discovery import ProviderInfo, discover_providers, normalize_base_url, select_default_provider
 from multimind.llm_client import LocalLLMClient
 from multimind.pipeline import run_pipeline, run_council_pipeline
+from multimind.org_pipeline import run_org_pipeline
 
 
 class SettingsPayload(BaseModel):
@@ -26,6 +27,7 @@ class SettingsPayload(BaseModel):
     model_map: dict[str, str] = Field(default_factory=dict)
     council_models: list[str] = Field(default_factory=list)
     judge_model: str = ""
+    org_model: str = ""
 
 
 class ChatRequest(BaseModel):
@@ -84,6 +86,7 @@ async def _refresh_runtime() -> None:
             default_model = selected_provider.models[0] if selected_provider.models else ""
             runtime.settings.council_models = [default_model] if default_model else []
             runtime.settings.judge_model = default_model
+            runtime.settings.org_model = default_model
         return
 
     matching_provider = next(
@@ -108,6 +111,11 @@ async def _refresh_runtime() -> None:
         default_model = (matching_provider or selected_provider).models[0] if (matching_provider or selected_provider) and (matching_provider or selected_provider).models else ""
         if default_model:
             runtime.settings.judge_model = default_model
+
+    if not runtime.settings.org_model:
+        default_model = (matching_provider or selected_provider).models[0] if (matching_provider or selected_provider) and (matching_provider or selected_provider).models else ""
+        if default_model:
+            runtime.settings.org_model = default_model
 
 
 @app.on_event("startup")
@@ -154,6 +162,7 @@ async def update_settings(payload: SettingsPayload) -> JSONResponse:
         model_map=_merge_model_map(payload.model_map, runtime.settings.model_map),
         council_models=payload.council_models or runtime.settings.council_models,
         judge_model=payload.judge_model or runtime.settings.judge_model,
+        org_model=payload.org_model or runtime.settings.org_model,
     )
     return JSONResponse(runtime.to_dict())
 
@@ -165,8 +174,8 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     message = request.message.strip()
     mode = request.mode.strip().lower()
 
-    if mode not in {"off", "medium", "hard", "council"}:
-        raise HTTPException(status_code=400, detail="Mode must be one of off, medium, hard, or council.")
+    if mode not in {"off", "medium", "hard", "council", "org"}:
+        raise HTTPException(status_code=400, detail="Mode must be one of off, medium, hard, council, or org.")
 
     if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
@@ -177,9 +186,23 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
         if not settings.judge_model:
             raise HTTPException(status_code=400, detail="A judge model must be selected.")
 
+    if mode == "org":
+        if not settings.org_model:
+            raise HTTPException(status_code=400, detail="An org model must be selected.")
+
     async def event_stream():
         try:
-            if mode == "council":
+            if mode == "org":
+                async for event in run_org_pipeline(
+                    client=app.state.llm_client,
+                    provider_kind=settings.provider_kind,
+                    base_url=settings.base_url,
+                    model=settings.org_model,
+                    ollama_think=settings.ollama_think,
+                    user_message=message,
+                ):
+                    yield json.dumps(event) + "\n"
+            elif mode == "council":
                 async for event in run_council_pipeline(
                     client=app.state.llm_client,
                     provider_kind=settings.provider_kind,

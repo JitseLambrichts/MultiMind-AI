@@ -339,7 +339,13 @@ button:hover {
 }
 
 .mode-button {
-  padding: 10px 16px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .chat-log {
@@ -652,6 +658,228 @@ button:hover {
   align-items: center;
   gap: 16px;
   margin-top: 14px;
+}
+
+/* ── Org Chart ── */
+
+.org-chart {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.org-node {
+  position: relative;
+  min-width: 220px;
+  animation: org-node-enter 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes org-node-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.org-node-header {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.62);
+  border-radius: 18px;
+  border: 1px solid rgba(23, 32, 39, 0.08);
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease;
+}
+
+.org-node-header:hover {
+  box-shadow: 0 4px 16px rgba(184, 92, 56, 0.1);
+  border-color: rgba(184, 92, 56, 0.22);
+}
+
+.org-node--active > .org-node-header {
+  border-color: rgba(184, 92, 56, 0.35);
+  box-shadow:
+    0 0 0 3px rgba(184, 92, 56, 0.08),
+    0 4px 16px rgba(184, 92, 56, 0.1);
+  animation: org-pulse 2s ease-in-out infinite;
+}
+
+@keyframes org-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(184, 92, 56, 0.08),
+      0 4px 16px rgba(184, 92, 56, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(184, 92, 56, 0.14),
+      0 4px 20px rgba(184, 92, 56, 0.15);
+  }
+}
+
+.org-node-role {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.org-node-slug {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.org-node-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.org-node-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  white-space: nowrap;
+}
+
+.org-node-status {
+  font-size: 0.82rem;
+  color: var(--ok);
+  white-space: nowrap;
+}
+
+.org-node-output {
+  white-space: normal;
+  line-height: 1.55;
+  margin: 8px 0 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(23, 32, 39, 0.045);
+  max-height: 280px;
+  overflow: auto;
+}
+
+.org-node-output > :first-child {
+  margin-top: 0;
+}
+
+.org-node-output > :last-child {
+  margin-bottom: 0;
+}
+
+.org-node-output h1,
+.org-node-output h2,
+.org-node-output h3,
+.org-node-output h4,
+.org-node-output h5,
+.org-node-output h6 {
+  line-height: 1.25;
+  margin: 1em 0 0.4em;
+}
+
+.org-node-output p,
+.org-node-output ul,
+.org-node-output ol,
+.org-node-output blockquote,
+.org-node-output pre,
+.org-node-output table {
+  margin: 0.55em 0;
+}
+
+.org-node-output ul,
+.org-node-output ol {
+  padding-left: 1.2rem;
+}
+
+.org-node-output li {
+  margin: 0.3em 0;
+}
+
+.org-node-output code {
+  font-family:
+    "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.92em;
+  background: rgba(23, 32, 39, 0.06);
+  border-radius: 6px;
+  padding: 0.12em 0.35em;
+}
+
+.org-node-output pre {
+  overflow: auto;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(23, 32, 39, 0.045);
+}
+
+.org-node-output pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.org-node-output a {
+  color: var(--accent-strong);
+}
+
+.org-node-children {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-left: 32px;
+  margin-top: 0;
+}
+
+.org-node-children:empty {
+  display: none;
+}
+
+/* Vertical connector line from parent to children */
+.org-node-children::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 0;
+  bottom: 16px;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    rgba(184, 92, 56, 0.3),
+    rgba(184, 92, 56, 0.08)
+  );
+  border-radius: 2px;
+}
+
+/* Horizontal connector line from vertical line to each child node */
+.org-node-children > .org-node {
+  padding-top: 10px;
+}
+
+.org-node-children > .org-node::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 32px;
+  width: 16px;
+  height: 2px;
+  background: rgba(184, 92, 56, 0.22);
+  border-radius: 2px;
 }
 
 @media (max-width: 1040px) {

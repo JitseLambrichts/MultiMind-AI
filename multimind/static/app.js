@@ -25,6 +25,8 @@ const standardSettings = document.querySelector("#standardSettings");
 const councilSettings = document.querySelector("#councilSettings");
 const modeToggle = document.querySelector("#modeToggle");
 const heroTitle = document.querySelector("#heroTitle");
+const orgModelInput = document.querySelector("#orgModel");
+const orgSettings = document.querySelector("#orgSettings");
 
 function renderMath(element) {
   if (!window.renderMathInElement) {
@@ -212,6 +214,8 @@ function renderSettings() {
 
   populateCouncilModels(state.settings.council_models);
   populateModelInput(judgeModelInput, state.settings.judge_model);
+
+  populateModelInput(orgModelInput, state.settings.org_model);
 }
 
 async function loadSettings(endpoint = "/api/settings") {
@@ -256,6 +260,7 @@ function syncProviderFields() {
   populateModelInput(modelCritique, state.settings?.model_map.critique);
   populateCouncilModels(state.settings?.council_models);
   populateModelInput(judgeModelInput, state.settings?.judge_model);
+  populateModelInput(orgModelInput, state.settings?.org_model);
 }
 
 async function saveSettings() {
@@ -277,6 +282,7 @@ async function saveSettings() {
     },
     council_models: selectedCouncilModels,
     judge_model: judgeModelInput.value,
+    org_model: orgModelInput.value,
   };
 
   const response = await fetch("/api/settings", {
@@ -314,6 +320,107 @@ function createAssistantMessage() {
     pendingAnswerHtml: "",
     renderScheduled: false,
   };
+}
+
+function createOrgChartMessage() {
+  const template = document.querySelector("#orgChartMessageTemplate");
+  const node = template.content.firstElementChild.cloneNode(true);
+  chatLog.appendChild(node);
+  node.scrollIntoView({ behavior: "smooth", block: "end" });
+  return {
+    root: node,
+    finalAnswer: node.querySelector('[data-role="finalAnswer"]'),
+    orgChart: node.querySelector('[data-role="orgChart"]'),
+    nodes: new Map(),
+    pendingAnswerContent: "",
+    pendingAnswerHtml: "",
+    renderScheduled: false,
+  };
+}
+
+function createOrgNode(container, event) {
+  const template = document.querySelector("#orgNodeTemplate");
+  const nodeEl = template.content.firstElementChild.cloneNode(true);
+  nodeEl.dataset.nodeId = event.node_id;
+  nodeEl.classList.add("org-node--active");
+
+  nodeEl.querySelector('[data-role="orgNodeRole"]').textContent = event.role;
+  nodeEl.querySelector('[data-role="orgNodeSlug"]').textContent =
+    event.department ? `${event.department}` : event.slug;
+
+  const badge = nodeEl.querySelector('[data-role="orgNodeBadge"]');
+  badge.textContent = `${event.reports || 0} reports`;
+  if (!event.reports) badge.style.display = "none";
+
+  const output = nodeEl.querySelector('[data-role="orgNodeOutput"]');
+  const toggle = nodeEl.querySelector('[data-role="orgNodeToggle"]');
+
+  toggle.addEventListener("click", () => {
+    output.classList.toggle("collapsed");
+    orgNode.isExpanded = !output.classList.contains("collapsed");
+    if (orgNode.isExpanded && orgNode.html) {
+      renderFinalAnswer(output, orgNode.buffer, orgNode.html);
+    }
+  });
+
+  // Find the right parent container
+  if (event.parent_id && container.nodes.has(event.parent_id)) {
+    const parentNode = container.nodes.get(event.parent_id);
+    parentNode.childrenEl.appendChild(nodeEl);
+  } else {
+    container.orgChart.appendChild(nodeEl);
+  }
+
+  const orgNode = {
+    root: nodeEl,
+    output,
+    status: nodeEl.querySelector('[data-role="orgNodeStatus"]'),
+    badge,
+    childrenEl: nodeEl.querySelector('[data-role="orgNodeChildren"]'),
+    buffer: "",
+    html: "",
+    isExpanded: false,
+    renderScheduled: false,
+  };
+
+  container.nodes.set(event.node_id, orgNode);
+  nodeEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  return orgNode;
+}
+
+function updateOrgNode(container, event) {
+  const orgNode = container.nodes.get(event.node_id);
+  if (!orgNode) return;
+
+  if (event.type === "org-node-delta") {
+    orgNode.buffer = event.content ?? `${orgNode.buffer}${event.delta}`;
+    orgNode.html = event.html ?? "";
+    if (orgNode.isExpanded) {
+      if (!orgNode.renderScheduled) {
+        orgNode.renderScheduled = true;
+        window.requestAnimationFrame(() => {
+          orgNode.renderScheduled = false;
+          renderFinalAnswer(orgNode.output, orgNode.buffer, orgNode.html);
+        });
+      }
+    }
+  }
+
+  if (event.type === "org-node-complete") {
+    orgNode.buffer = event.content;
+    orgNode.html = event.html ?? "";
+    orgNode.status.textContent = "Done";
+    orgNode.root.classList.remove("org-node--active");
+
+    if (event.reports !== undefined && event.reports > 0) {
+      orgNode.badge.textContent = `${event.reports} reports`;
+      orgNode.badge.style.display = "";
+    }
+
+    if (orgNode.isExpanded) {
+      renderFinalAnswer(orgNode.output, orgNode.buffer, orgNode.html);
+    }
+  }
 }
 
 function createStepCard(container, event) {
@@ -388,6 +495,89 @@ function updateStep(container, event) {
 }
 
 async function streamChat(message) {
+  if (state.selectedMode === "org") {
+    await streamOrgChat(message);
+  } else {
+    await streamStandardChat(message);
+  }
+}
+
+async function streamOrgChat(message) {
+  appendUserMessage(message);
+  const container = createOrgChartMessage();
+
+  const response = await fetch("/api/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, mode: "org" }),
+  });
+
+  if (!response.ok || !response.body) {
+    container.finalAnswer.textContent = "The org pipeline failed to start.";
+    return;
+  }
+
+  container.finalAnswer.innerHTML = '<span class="hint">Delegating...</span>';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalAnswer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    lines.forEach((line) => {
+      if (!line.trim()) return;
+      const event = JSON.parse(line);
+
+      if (event.type === "org-node-start") {
+        createOrgNode(container, event);
+      }
+
+      if (event.type === "org-node-delta" || event.type === "org-node-complete") {
+        updateOrgNode(container, event);
+      }
+
+      if (event.type === "answer-start") {
+        container.pendingAnswerContent = "";
+        container.pendingAnswerHtml = "";
+        container.finalAnswer.textContent = "";
+      }
+
+      if (event.type === "answer-delta") {
+        finalAnswer = event.content ?? `${finalAnswer}${event.delta}`;
+        container.pendingAnswerContent = finalAnswer;
+        container.pendingAnswerHtml = event.html ?? "";
+        scheduleFinalAnswerRender(container);
+      }
+
+      if (event.type === "answer-complete") {
+        finalAnswer = event.content;
+        container.pendingAnswerContent = finalAnswer;
+        container.pendingAnswerHtml = event.html ?? "";
+        if (container.renderScheduled) {
+          flushFinalAnswerRender(container);
+        } else {
+          renderFinalAnswer(container.finalAnswer, finalAnswer, event.html);
+        }
+      }
+
+      if (event.type === "error") {
+        container.finalAnswer.textContent = event.message;
+      }
+    });
+  }
+
+  container.root.querySelector(".message-meta").textContent = "ORG CHART";
+  container.root.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
+async function streamStandardChat(message) {
   appendUserMessage(message);
   const assistant = createAssistantMessage();
 
@@ -489,12 +679,21 @@ if (mainTabs) {
       if (state.activeTab === "council") {
         standardSettings.style.display = "none";
         councilSettings.style.display = "block";
+        orgSettings.style.display = "none";
         modeToggle.style.display = "none";
         heroTitle.textContent = "Consult the Agent Council";
         state.selectedMode = "council";
+      } else if (state.activeTab === "org") {
+        standardSettings.style.display = "none";
+        councilSettings.style.display = "none";
+        orgSettings.style.display = "block";
+        modeToggle.style.display = "none";
+        heroTitle.textContent = "Delegate to the Org Chart";
+        state.selectedMode = "org";
       } else {
         standardSettings.style.display = "block";
         councilSettings.style.display = "none";
+        orgSettings.style.display = "none";
         modeToggle.style.display = "flex";
         heroTitle.textContent = "Make your local models reason";
 
