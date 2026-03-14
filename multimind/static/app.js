@@ -341,7 +341,11 @@ function createOrgChartMessage() {
 function createOrgNode(container, event) {
   const template = document.querySelector("#orgNodeTemplate");
   const nodeEl = template.content.firstElementChild.cloneNode(true);
+  const parentNode = event.parent_id ? container.nodes.get(event.parent_id) : null;
+  const depth = parentNode ? parentNode.depth + 1 : 0;
+
   nodeEl.dataset.nodeId = event.node_id;
+  nodeEl.dataset.depth = String(depth);
   nodeEl.classList.add("org-node--active");
 
   nodeEl.querySelector('[data-role="orgNodeRole"]').textContent = event.role;
@@ -363,9 +367,7 @@ function createOrgNode(container, event) {
     }
   });
 
-  // Find the right parent container
-  if (event.parent_id && container.nodes.has(event.parent_id)) {
-    const parentNode = container.nodes.get(event.parent_id);
+  if (parentNode) {
     parentNode.childrenEl.appendChild(nodeEl);
   } else {
     container.orgChart.appendChild(nodeEl);
@@ -379,6 +381,7 @@ function createOrgNode(container, event) {
     childrenEl: nodeEl.querySelector('[data-role="orgNodeChildren"]'),
     buffer: "",
     html: "",
+    depth,
     isExpanded: false,
     renderScheduled: false,
   };
