@@ -6,11 +6,17 @@ from collections.abc import AsyncIterator
 
 from multimind.llm_client import LocalLLMClient
 from multimind.markdown_render import render_markdown_to_html
+from multimind.org_roles import (
+    VALID_DEPARTMENTS,
+    get_department_employees,
+    get_department_roster_summary,
+)
 
 COMPANY_NAME = "MultiMind Corp"
 
 
 def _system_prompt_ceo() -> str:
+    roster = get_department_roster_summary()
     return (
         "You are the CEO of a multi-department AI organization. "
         "Your job is not to do the work — it is to ensure the right departments get the right sub-tasks, "
@@ -21,14 +27,16 @@ def _system_prompt_ceo() -> str:
         "2. Map the request to departments. Only involve a department if its output is genuinely needed "
         "for the final deliverable — not because it could theoretically contribute.\n"
         "3. Write each sub-task as a complete, self-contained brief. "
-        "The department head must be able to act on it without reading the original request.\n"
+        "The department must be able to act on it without reading the original request.\n"
         "4. If a department's work depends on another's output, note that dependency in the task description.\n\n"
+
+        "Available departments and their specialists:\n"
+        f"{roster}\n\n"
 
         "Output rules — these are absolute:\n"
         "- Respond with ONLY a valid JSON array. No preamble, no explanation, no trailing text.\n"
         "- Each object has exactly two string keys: \"department\" and \"task\".\n"
-        "- Valid department names: Engineering, Marketing, Design, Sales, Legal, Finance, HR, QA, "
-        "Data Science, DevOps, Content, Product, Research.\n"
+        f"- Valid department names: {', '.join(sorted(VALID_DEPARTMENTS))}.\n"
         "- 2–5 departments maximum. More is not better — unfocused delegation produces incoherent results.\n\n"
 
         "Example:\n"
@@ -39,25 +47,24 @@ def _system_prompt_ceo() -> str:
     )
 
 
-def _system_prompt_department_head(department: str) -> str:
+def _system_prompt_ceo_scope_tasks(department: str, roles: list[str]) -> str:
+    role_list = ", ".join(roles)
     return (
-        f"You are the Head of {department}. "
-        f"You manage a team of specialists and are accountable for the quality of {department}'s output. "
-        "You receive a sub-task briefed by the CEO and translate it into individual assignments "
-        "that your team members can execute in parallel without coordinating with each other.\n\n"
+        f"You are the CEO. You previously assigned a sub-task to the {department} department. "
+        f"That department has these specialists: {role_list}.\n\n"
 
-        "How you work:\n"
-        "1. Read the CEO's sub-task and identify the distinct work streams it contains.\n"
-        "2. Assign each work stream to the most specific, appropriate role — "
-        "prefer precise titles (e.g. 'Backend Developer', 'UX Researcher') over generic ones.\n"
-        "3. Each assignment must be fully self-contained: include all context the employee needs, "
-        "because they will not see the CEO's original brief.\n"
-        "4. Do not assign the same work to two people. Do not leave any part of the sub-task unassigned.\n\n"
+        "Your job now is to split the sub-task into individual assignments — one per specialist who is "
+        "genuinely needed. Not every specialist must be used. Only assign work that requires "
+        "that specific role's expertise.\n\n"
+
+        "Each assignment must be fully self-contained: include all context the employee needs, "
+        "because they will not see the original request.\n\n"
 
         "Output rules — these are absolute:\n"
         "- Respond with ONLY a valid JSON array. No preamble, no explanation, no trailing text.\n"
         "- Each object has exactly two string keys: \"role\" and \"task\".\n"
-        "- 1–4 employees maximum. If the task can be done by one person, assign one.\n\n"
+        f"- Valid role names: {role_list}.\n"
+        f"- 1–{len(roles)} employees maximum. If the task can be done by one person, assign one.\n\n"
 
         "Example:\n"
         '[{"role": "Backend Developer", "task": "Implement JWT-based user authentication. '
@@ -65,26 +72,6 @@ def _system_prompt_department_head(department: str) -> str:
         'Handle token expiry with a 401 response and refresh token flow."}, '
         '{"role": "QA Engineer", "task": "Write integration tests for the auth endpoints listed above. '
         'Cover: valid login, wrong password, expired token, and missing header cases."}]'
-    )
-
-
-def _system_prompt_employee(role: str, department: str) -> str:
-    return (
-        f"You are a {role} in the {department} department. "
-        f"You are a specialist — deep expertise in {role} work is your only mandate. "
-        "You receive a scoped assignment and deliver a complete, professional result. "
-        "You do not coordinate with other team members, and you do not expand the scope.\n\n"
-
-        "How you work:\n"
-        "1. Read the assignment carefully. Identify the exact deliverable expected.\n"
-        "2. Execute with full depth — no placeholders, no 'you could also add...' suggestions, "
-        "no deferred work. If it needs to be done, do it now.\n"
-        "3. If you must make an assumption to proceed, state it in one sentence at the top, then deliver.\n"
-        "4. Stay strictly within your domain. Do not offer opinions on work that belongs to other roles.\n\n"
-
-        "Output standards: Lead with the deliverable itself, not an explanation of what you're about to do. "
-        "Use structure (headers, code blocks, lists) only when it genuinely aids clarity. "
-        "Professional tone — direct, precise, no filler."
     )
 
 
@@ -150,32 +137,6 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
-async def _collect_agent_response(
-    client: LocalLLMClient,
-    provider_kind: str,
-    base_url: str,
-    model: str,
-    messages: list[dict[str, str]],
-    ollama_think: bool,
-    node_id: str,
-) -> tuple[str, AsyncIterator[dict]]:
-    """Collect full response from an agent, yielding streaming events."""
-    buffer: list[str] = []
-    partial = ""
-
-    async for token in client.stream_chat(
-        provider_kind=provider_kind,
-        base_url=base_url,
-        model=model,
-        messages=messages,
-        ollama_think=ollama_think,
-    ):
-        buffer.append(token)
-        partial += token
-
-    return "".join(buffer).strip()
-
-
 async def run_org_pipeline(
     *,
     client: LocalLLMClient,
@@ -185,9 +146,9 @@ async def run_org_pipeline(
     ollama_think: bool,
     user_message: str,
 ) -> AsyncIterator[dict]:
-    """Run the multi-agent org chart pipeline."""
+    """Run the multi-agent org chart pipeline with pre-trained employees."""
 
-    # ── Phase 1: CEO decomposes the task ─────────────────────────────
+    # ── Phase 1: CEO decomposes the task into departments ─────────
     ceo_id = "org-ceo"
     yield {
         "type": "org-run-start",
@@ -238,7 +199,7 @@ async def run_org_pipeline(
     departments = _parse_json_array(ceo_output)
     if not departments:
         # Fallback: treat entire output as a single task
-        departments = [{"department": "General", "task": user_message}]
+        departments = [{"department": "Engineering", "task": user_message}]
 
     yield {
         "type": "org-node-complete",
@@ -248,7 +209,7 @@ async def run_org_pipeline(
         "reports": len(departments),
     }
 
-    # ── Phase 2: Department heads decompose their sub-tasks ──────────
+    # ── Phase 2 & 3: For each department, scope tasks then execute ─
     all_department_results: list[dict] = []
 
     for dept_idx, dept_info in enumerate(departments):
@@ -256,63 +217,82 @@ async def run_org_pipeline(
         dept_task = dept_info.get("task", "")
         dept_id = f"org-dept-{_slug(dept_name)}-{dept_idx}"
 
+        # Look up the pre-trained employees for this department
+        roster = get_department_employees(dept_name)
+        role_names = [e["role"] for e in roster]
+
+        # Emit a synthetic department group node (preserves 3-level visual hierarchy)
         yield {
             "type": "org-node-start",
             "node_id": dept_id,
             "parent_id": ceo_id,
-            "role": f"{dept_name} Manager",
+            "role": f"{dept_name} Department",
             "slug": _slug(dept_name),
             "department": dept_name,
             "model": model,
             "reports": 0,
         }
 
-        # Stream department head decomposition
-        dept_messages = [
-            {"role": "system", "content": _system_prompt_department_head(dept_name)},
+        # Phase 2: CEO scopes tasks for this department's specialists
+        scope_messages = [
+            {"role": "system", "content": _system_prompt_ceo_scope_tasks(dept_name, role_names)},
             {"role": "user", "content": dept_task},
         ]
 
-        dept_buffer: list[str] = []
-        dept_partial = ""
+        scope_buffer: list[str] = []
+        scope_partial = ""
 
         async for token in client.stream_chat(
             provider_kind=provider_kind,
             base_url=base_url,
             model=model,
-            messages=dept_messages,
+            messages=scope_messages,
             ollama_think=ollama_think,
         ):
-            dept_buffer.append(token)
-            dept_partial += token
+            scope_buffer.append(token)
+            scope_partial += token
             yield {
                 "type": "org-node-delta",
                 "node_id": dept_id,
                 "delta": token,
-                "content": dept_partial,
-                "html": render_markdown_to_html(dept_partial),
+                "content": scope_partial,
+                "html": render_markdown_to_html(scope_partial),
             }
 
-        dept_output = "".join(dept_buffer).strip()
-        employees = _parse_json_array(dept_output)
-        if not employees:
-            employees = [{"role": "Specialist", "task": dept_task}]
+        scope_output = "".join(scope_buffer).strip()
+        assignments = _parse_json_array(scope_output)
+        if not assignments:
+            # Fallback: assign the full task to the first employee
+            assignments = [{"role": roster[0]["role"], "task": dept_task}]
 
         yield {
             "type": "org-node-complete",
             "node_id": dept_id,
-            "content": dept_output,
-            "html": render_markdown_to_html(dept_output),
-            "reports": len(employees),
+            "content": scope_output,
+            "html": render_markdown_to_html(scope_output),
+            "reports": len(assignments),
         }
 
-        # ── Phase 3: Employees execute their tasks ───────────────────
+        # Phase 3: Employees execute their assignments using pre-trained prompts
         employee_results: list[dict] = []
 
-        for emp_idx, emp_info in enumerate(employees):
-            emp_role = emp_info.get("role", f"Employee {emp_idx + 1}")
+        # Build a lookup from role name → system_prompt
+        role_prompt_map = {e["role"]: e["system_prompt"] for e in roster}
+
+        for emp_idx, emp_info in enumerate(assignments):
+            emp_role = emp_info.get("role", roster[0]["role"])
             emp_task = emp_info.get("task", "")
             emp_id = f"org-emp-{_slug(dept_name)}-{_slug(emp_role)}-{emp_idx}"
+
+            # Use pre-trained system prompt, or fall back to a generic one
+            emp_system_prompt = role_prompt_map.get(
+                emp_role,
+                (
+                    f"You are a {emp_role} in the {dept_name} department. "
+                    "You are a specialist. Execute the assignment with full depth — "
+                    "no placeholders, no deferred work. Lead with the deliverable."
+                ),
+            )
 
             yield {
                 "type": "org-node-start",
@@ -326,7 +306,7 @@ async def run_org_pipeline(
             }
 
             emp_messages = [
-                {"role": "system", "content": _system_prompt_employee(emp_role, dept_name)},
+                {"role": "system", "content": emp_system_prompt},
                 {"role": "user", "content": emp_task},
             ]
 
