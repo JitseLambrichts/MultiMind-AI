@@ -3,7 +3,243 @@ const state = {
   settings: null,
   selectedMode: "off",
   activeTab: "standard",
+  activeConversationId: null
 };
+
+// Storage Manager
+const STORAGE_KEYS = {
+  SETTINGS: 'multimind_settings',
+  CONVERSATIONS: 'multimind_conversations',
+  ACTIVE_CONVERSATION: 'multimind_active_conversation',
+  SIDEBAR_OPEN: 'multimind_sidebar_open'
+};
+
+function generateId() {
+  return crypto.randomUUID();
+}
+
+function getSettings() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    return data ? JSON.parse(data) : null;
+  } catch (e) {
+    console.warn("Failed to load settings from localStorage", e);
+    return null;
+  }
+}
+
+function saveLocalSettings(settingsPayload) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settingsPayload));
+  } catch (e) {
+    if (e.name === 'QuotaExceededError') {
+      setStatus("Storage full. Settings not saved locally.");
+    } else {
+      console.warn("Failed to save settings to localStorage", e);
+    }
+  }
+}
+
+function getConversations() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.CONVERSATIONS);
+    const convs = data ? JSON.parse(data) : [];
+    return convs.sort((a, b) => b.updated_at - a.updated_at);
+  } catch (e) {
+    console.warn("Failed to load conversations from localStorage", e);
+    localStorage.setItem(STORAGE_KEYS.CONVERSATIONS, JSON.stringify([]));
+    return [];
+  }
+}
+
+function getConversation(id) {
+  return getConversations().find(c => c.id === id) || null;
+}
+
+function saveConversation(conv) {
+  try {
+    let conversations = getConversations();
+    const index = conversations.findIndex(c => c.id === conv.id);
+    if (index > -1) {
+      conversations[index] = conv;
+    } else {
+      conversations.push(conv);
+    }
+    localStorage.setItem(STORAGE_KEYS.CONVERSATIONS, JSON.stringify(conversations));
+  } catch (e) {
+    if (e.name === 'QuotaExceededError') {
+      setStatus("Storage full. Delete some conversations to save new ones.");
+    } else {
+      console.warn("Failed to save conversation to localStorage", e);
+    }
+  }
+}
+
+function deleteConversation(id) {
+  try {
+    let conversations = getConversations();
+    conversations = conversations.filter(c => c.id !== id);
+    localStorage.setItem(STORAGE_KEYS.CONVERSATIONS, JSON.stringify(conversations));
+
+    if (state.activeConversationId === id) {
+      startNewChat();
+    }
+    renderConversationList();
+  } catch (e) {
+    console.warn("Failed to delete conversation", e);
+  }
+}
+
+function startNewChat() {
+  const id = generateId();
+  state.activeConversationId = id;
+  localStorage.setItem(STORAGE_KEYS.ACTIVE_CONVERSATION, id);
+  chatLog.innerHTML = '';
+
+  const newConv = {
+    id,
+    title: "New Chat",
+    created_at: Date.now(),
+    updated_at: Date.now(),
+    mode: state.selectedMode,
+    messages: []
+  };
+
+  saveConversation(newConv);
+  if (typeof renderConversationList === 'function') {
+    renderConversationList();
+  }
+}
+
+function loadChat(id) {
+  const conv = getConversation(id);
+  if (!conv) {
+    startNewChat();
+    return;
+  }
+
+  state.activeConversationId = id;
+  localStorage.setItem(STORAGE_KEYS.ACTIVE_CONVERSATION, id);
+  chatLog.innerHTML = '';
+
+  // Update UI mode
+  if (conv.mode) {
+    state.selectedMode = conv.mode;
+
+    // Update tabs
+    document.querySelectorAll(".tab-button").forEach(btn => btn.classList.remove("active"));
+    let tabName = "standard";
+    if (conv.mode === "council") tabName = "council";
+    if (conv.mode === "org") tabName = "org";
+
+    const tabBtn = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+    if(tabBtn) tabBtn.classList.add("active");
+
+    // Toggle UI panels based on mode (reusing logic from tab click handler)
+    if (tabName === "council") {
+      standardSettings.style.display = "none";
+      councilSettings.style.display = "block";
+      orgSettings.style.display = "none";
+      modeToggle.style.display = "none";
+      heroTitle.textContent = "Consult the Agent Council";
+    } else if (tabName === "org") {
+      standardSettings.style.display = "none";
+      councilSettings.style.display = "none";
+      orgSettings.style.display = "block";
+      modeToggle.style.display = "none";
+      heroTitle.textContent = "Delegate to the Organisation";
+    } else {
+      standardSettings.style.display = "block";
+      councilSettings.style.display = "none";
+      orgSettings.style.display = "none";
+      modeToggle.style.display = "flex";
+      heroTitle.textContent = "Make your local models reason";
+
+      // update mode toggle buttons
+      modeToggle.querySelectorAll(".mode-button").forEach(node => node.classList.remove("active"));
+      const modeBtn = modeToggle.querySelector(`.mode-button[data-mode="${conv.mode}"]`);
+      if(modeBtn) modeBtn.classList.add("active");
+    }
+  }
+
+  // Replay messages
+  conv.messages.forEach(msg => {
+    if (msg.role === "user") {
+      appendUserMessage(msg.content);
+    } else {
+      // Simplify replay for assistants - just show final text
+      // We don't save the full timeline/org chart in localStorage
+      const template = document.querySelector("#assistantMessageTemplate");
+      const node = template.content.firstElementChild.cloneNode(true);
+      const finalAnswer = node.querySelector('[data-role="finalAnswer"]');
+      const html = DOMPurify.sanitize(marked.parse(msg.content));
+
+      node.querySelector('.message-meta').textContent = "SAVED";
+
+      const timeline = node.querySelector('[data-role="timeline"]');
+      if (timeline) {
+          timeline.remove(); // Remove timeline for saved chats
+      }
+
+      // Also handle org chart removal if it's an org template
+      const orgChart = node.querySelector('[data-role="orgChart"]');
+      if (orgChart) {
+          orgChart.remove();
+      }
+
+      renderFinalAnswer(finalAnswer, html);
+      chatLog.appendChild(node);
+    }
+  });
+
+  if (chatLog.lastElementChild) {
+    chatLog.lastElementChild.scrollIntoView();
+  }
+
+  // renderConversationList might not exist yet, so check if it does
+  if (typeof renderConversationList === 'function') {
+      renderConversationList();
+  }
+}
+
+function saveMessage(role, content) {
+  if (!state.activeConversationId) {
+    startNewChat();
+  }
+
+  const conv = getConversation(state.activeConversationId);
+  if (!conv) return;
+
+  // Set title on first user message
+  if (role === "user" && conv.messages.length === 0) {
+    conv.title = content.substring(0, 50) + (content.length > 50 ? "..." : "");
+  }
+
+  // Update mode to current state
+  conv.mode = state.selectedMode;
+
+  conv.messages.push({
+    role,
+    content,
+    timestamp: Date.now()
+  });
+
+  conv.updated_at = Date.now();
+  saveConversation(conv);
+
+  if (typeof renderConversationList === 'function') {
+      renderConversationList();
+  }
+}
+
+function getSidebarState() {
+  return localStorage.getItem(STORAGE_KEYS.SIDEBAR_OPEN) !== 'false';
+}
+
+function saveSidebarState(isOpen) {
+  localStorage.setItem(STORAGE_KEYS.SIDEBAR_OPEN, String(isOpen));
+}
+
 
 const chatLog = document.querySelector("#chatLog");
 const statusBar = document.querySelector("#statusBar");
@@ -230,7 +466,10 @@ function addCouncilMemberInput(value = "") {
   removeBtn.title = "Remove advisor";
   removeBtn.style.padding = "0.25rem 0.5rem";
   removeBtn.style.fontSize = "1.25rem";
-  removeBtn.addEventListener("click", () => wrapper.remove());
+  removeBtn.addEventListener("click", () => {
+    wrapper.remove();
+    saveSettings();
+  });
 
   wrapper.appendChild(input);
   wrapper.appendChild(removeBtn);
@@ -260,27 +499,56 @@ function renderSettings() {
 }
 
 async function loadSettings(endpoint = "/api/settings") {
-  const response = await fetch(endpoint, {
-    method: endpoint === "/api/settings" ? "GET" : "POST",
-  });
-  const payload = await response.json();
-  state.providers = payload.providers;
-  state.settings = payload.settings;
-  renderSettings();
+  try {
+    let payload;
+    let localSettings = null;
 
-  const activeProvider = state.providers.find(
-    (provider) => provider.name === state.settings.provider_name,
-  );
-  if (activeProvider?.available) {
-    setStatus(
-      `Connected to ${activeProvider.name} at ${activeProvider.base_url}.`,
+    if (endpoint === "/api/settings") {
+        localSettings = getSettings();
+    }
+
+    if (localSettings) {
+      // We have local settings, push them to server to sync
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(localSettings),
+      });
+      payload = await response.json();
+    } else {
+      // Fallback to server fetch or refresh
+      const response = await fetch(endpoint, {
+        method: endpoint === "/api/settings" ? "GET" : "POST",
+      });
+      payload = await response.json();
+
+      // Cache fetched settings if GET
+      if (endpoint === "/api/settings") {
+          saveLocalSettings(payload.settings);
+      }
+    }
+
+    state.providers = payload.providers;
+    state.settings = payload.settings;
+    renderSettings();
+
+    const activeProvider = state.providers.find(
+      (provider) => provider.name === state.settings.provider_name,
     );
-  } else if (state.providers.length) {
-    setStatus(
-      "No detected provider is online. You can still point the app at a local endpoint manually.",
-    );
-  } else {
-    setStatus("No providers detected yet.");
+    if (activeProvider?.available) {
+      setStatus(
+        `Connected to ${activeProvider.name} at ${activeProvider.base_url}.`,
+      );
+    } else if (state.providers.length) {
+      setStatus(
+        "No detected provider is online. You can still point the app at a local endpoint manually.",
+      );
+    } else {
+      setStatus("No providers detected yet.");
+    }
+  } catch(error) {
+     setStatus(error instanceof Error ? error.message : "Failed to load settings.");
+     throw error;
   }
 }
 
@@ -326,6 +594,9 @@ async function saveSettings() {
     org_model: orgModelInput.value,
   };
 
+  // Save locally immediately
+  saveLocalSettings(payload);
+
   const response = await fetch("/api/settings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -337,6 +608,47 @@ async function saveSettings() {
   state.settings = updated.settings;
   setStatus(`Saved settings for ${payload.provider_name || payload.base_url}.`);
   renderSettings();
+}
+
+// Below saveSettings, add event listeners for auto-save
+function setupAutoSave() {
+  const inputs = [
+    providerSelect, providerKind, baseUrlInput, ollamaThinkInput,
+    modelPlan, modelExecute, modelCritique, judgeModelInput, orgModelInput
+  ];
+
+  inputs.forEach(input => {
+    if(input) {
+        input.addEventListener('change', saveSettings);
+        if(input.type === 'text') {
+            input.addEventListener('blur', saveSettings);
+        }
+    }
+  });
+
+  // Event delegation for dynamically added council members
+  const councilMembersContainer = document.querySelector("#councilMembersContainer");
+  if (councilMembersContainer) {
+    councilMembersContainer.addEventListener('change', (e) => {
+      if (e.target.classList.contains('council-member-input')) {
+        saveSettings();
+      }
+    });
+    councilMembersContainer.addEventListener('blur', (e) => {
+      if (e.target.classList.contains('council-member-input')) {
+        saveSettings();
+      }
+    }, true); // useCapture for blur event
+  }
+
+  // Update remove 'saveSettings' button listener to just provide visual feedback since it auto-saves
+  const saveBtn = document.querySelector("#saveSettings");
+  if(saveBtn) {
+      saveBtn.textContent = "Settings Auto-Save";
+      saveBtn.disabled = true;
+      saveBtn.style.opacity = "0.7";
+      saveBtn.style.cursor = "default";
+  }
 }
 
 function appendUserMessage(text) {
@@ -543,6 +855,7 @@ async function streamChat(message) {
 
 async function streamOrgChat(message) {
   appendUserMessage(message);
+  saveMessage("user", message);
   const container = createOrgChartMessage();
 
   const response = await fetch("/api/chat/stream", {
@@ -612,10 +925,15 @@ async function streamOrgChat(message) {
 
   container.root.querySelector(".message-meta").textContent = "ORG CHART";
   container.root.scrollIntoView({ behavior: "smooth", block: "end" });
+
+  if (finalAnswer) {
+    saveMessage("assistant", finalAnswer);
+  }
 }
 
 async function streamStandardChat(message) {
   appendUserMessage(message);
+  saveMessage("user", message);
   const assistant = createAssistantMessage();
 
   const response = await fetch("/api/chat/stream", {
@@ -687,6 +1005,10 @@ async function streamStandardChat(message) {
   assistant.root.querySelector(".message-meta").textContent =
     state.selectedMode.toUpperCase();
   assistant.root.scrollIntoView({ behavior: "smooth", block: "end" });
+
+  if (finalAnswer) {
+    saveMessage("assistant", finalAnswer);
+  }
 }
 
 if (modeToggle) {
@@ -754,7 +1076,7 @@ if (toggleSidebar && appShell) {
 
 providerSelect.addEventListener("change", syncProviderFields);
 providerKind.addEventListener("change", syncProviderSpecificSettings);
-document.querySelector("#saveSettings").addEventListener("click", saveSettings);
+
 if (addCouncilMemberBtn) {
   addCouncilMemberBtn.addEventListener("click", () =>
     addCouncilMemberInput(""),
@@ -790,8 +1112,100 @@ document
     }
   });
 
-loadSettings().catch((error) => {
-  setStatus(
-    error instanceof Error ? error.message : "Failed to load settings.",
-  );
-});
+function renderConversationList() {
+  const list = document.querySelector("#conversationList");
+  if (!list) return;
+
+  list.innerHTML = '';
+  const conversations = getConversations();
+
+  conversations.forEach(conv => {
+    const li = document.createElement("li");
+    li.className = `conversation-item ${conv.id === state.activeConversationId ? 'active' : ''}`;
+
+    const titleSpan = document.createElement("span");
+    titleSpan.className = "conversation-title";
+    titleSpan.textContent = conv.title || "Empty Chat";
+
+    const countBadge = document.createElement("span");
+    countBadge.className = "chat-count-badge";
+
+    // Map mode to a single letter
+    let modeLetter = "S"; // standard/off
+    if (conv.mode === "council") modeLetter = "C";
+    else if (conv.mode === "org") modeLetter = "O";
+    else if (conv.mode === "medium") modeLetter = "M";
+    else if (conv.mode === "hard") modeLetter = "H";
+    else if (conv.mode === "thinking") modeLetter = "T"; // thinking (legacy or specific)
+
+    countBadge.textContent = modeLetter;
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "ghost-button icon-button delete-chat-btn";
+    deleteBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+      </svg>
+    `;
+
+    li.addEventListener("click", () => {
+      if (conv.id !== state.activeConversationId) {
+        loadChat(conv.id);
+      }
+    });
+
+    deleteBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent triggering list item click
+      deleteConversation(conv.id);
+    });
+
+    li.appendChild(titleSpan);
+    li.appendChild(countBadge);
+    li.appendChild(deleteBtn);
+    list.appendChild(li);
+  });
+}
+
+function initHistorySidebar() {
+  const toggleBtn = document.querySelector("#toggleHistorySidebar");
+  const newChatBtn = document.querySelector("#newChatButton");
+  const appShell = document.querySelector("#appShell");
+
+  if (toggleBtn && appShell) {
+    // Set initial state
+    if (!getSidebarState()) {
+      appShell.classList.add("history-collapsed");
+    }
+
+    toggleBtn.addEventListener("click", () => {
+      const isCollapsed = appShell.classList.toggle("history-collapsed");
+      saveSidebarState(!isCollapsed);
+    });
+  }
+
+  if (newChatBtn) {
+    newChatBtn.addEventListener("click", startNewChat);
+  }
+}
+
+async function initializeApp() {
+  initHistorySidebar();
+  setupAutoSave();
+
+  // Load settings
+  try {
+    await loadSettings();
+  } catch (error) {
+    console.error("Settings load failed", error);
+  }
+
+  // Restore active conversation or start new
+  const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_CONVERSATION);
+  if (savedActiveId && getConversation(savedActiveId)) {
+    loadChat(savedActiveId);
+  } else {
+    startNewChat();
+  }
+}
+
+initializeApp();

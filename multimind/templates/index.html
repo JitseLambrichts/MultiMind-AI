@@ -11,6 +11,24 @@
   <body>
     <div class="backdrop"></div>
     <div class="shell" id="appShell">
+      <aside class="panel sidebar-panel" id="historySidebar">
+        <div class="sidebar-header">
+          <button id="toggleHistorySidebar" class="ghost-button icon-button" type="button" aria-label="Toggle History" title="Toggle History">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12h18M3 6h18M3 18h18" />
+            </svg>
+          </button>
+          <span class="sidebar-title">Chats</span>
+          <button id="newChatButton" class="ghost-button icon-button" type="button" aria-label="New Chat" title="New Chat">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        </div>
+        <div class="sidebar-content">
+          <ul id="conversationList" class="conversation-list"></ul>
+        </div>
+      </aside>
       <aside class="panel settings-panel">
         <div class="settings-header">
           <div class="title-container">
