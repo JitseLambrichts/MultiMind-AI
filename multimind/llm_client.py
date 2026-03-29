@@ -80,6 +80,7 @@ class LocalLLMClient:
                 "temperature": temperature,
                 "top_p": DEFAULT_TOP_P,
                 "repeat_penalty": DEFAULT_REPEAT_PENALTY,
+                "num_predict": -1,
             },
         }
 
@@ -120,6 +121,7 @@ class LocalLLMClient:
             "top_p": DEFAULT_TOP_P,
             "presence_penalty": DEFAULT_PRESENCE_PENALTY,
             "frequency_penalty": DEFAULT_FREQUENCY_PENALTY,
+            "max_tokens": 8192,
         }
 
         async with self._client.stream(
