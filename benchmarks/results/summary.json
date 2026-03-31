@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-30T22:01:21.244888+00:00",
+  "timestamp": "2026-03-31T07:08:19.037094+00:00",
   "models": [
     "qwen3.5:4b"
   ],
@@ -17,34 +17,34 @@
     "qwen3-4b-instruct",
     "llama3.2:3b"
   ],
-  "total_time_seconds": 5614.49,
+  "total_time_seconds": 3837.01,
   "runs": {
     "gsm8k_mini__qwen3.5:4b__off": {
-      "accuracy": 0.6,
-      "total_questions": 10,
-      "correct": 6,
-      "mean_time_seconds": 18.86,
-      "median_time_seconds": 4.49,
-      "total_output_chars": 30865,
+      "accuracy": 0.8,
+      "total_questions": 5,
+      "correct": 4,
+      "mean_time_seconds": 196.27,
+      "median_time_seconds": 5.53,
+      "total_output_chars": 132961,
       "self_correction_rate": null
     },
     "gsm8k_mini__qwen3.5:4b__medium": {
       "accuracy": 0.6,
-      "total_questions": 10,
-      "correct": 6,
-      "mean_time_seconds": 171.38,
-      "median_time_seconds": 78.67,
-      "total_output_chars": 173766,
+      "total_questions": 5,
+      "correct": 3,
+      "mean_time_seconds": 79.18,
+      "median_time_seconds": 59.12,
+      "total_output_chars": 35177,
       "self_correction_rate": null
     },
     "gsm8k_mini__qwen3.5:4b__hard": {
-      "accuracy": 0.3,
-      "total_questions": 10,
+      "accuracy": 0.6,
+      "total_questions": 5,
       "correct": 3,
-      "mean_time_seconds": 371.19,
-      "median_time_seconds": 215.97,
-      "total_output_chars": 510868,
-      "self_correction_rate": 0.9
+      "mean_time_seconds": 491.94,
+      "median_time_seconds": 131.63,
+      "total_output_chars": 220863,
+      "self_correction_rate": 0.6
     }
   }
 }

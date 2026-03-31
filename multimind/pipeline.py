@@ -64,12 +64,11 @@ def _system_prompt_for_plan() -> str:
         "You are the expert analytical planning stage in a multi-step reasoning pipeline.\n"
         "Your task: carefully research the request and map out a grounded, step-by-step strategy.\n"
         "Instructions:\n"
-        "1. GROUNDED RESEARCH: Start by identifying the core requirements, necessary technologies, and architectural dependencies.\n"
-        "2. LOGICAL BREAKDOWN: Use numbered pseudocode to represent execution steps. Group tasks by component or layer.\n"
-        "3. EDGE CASES: Explicitly identify 3-5 likely edge cases (e.g., empty states, timeouts, auth failures) and integrate them into the plan.\n"
-        "4. DESIGN AESTHETICS: If the task involves UI, plan for 'Rich Aesthetics'—vibrant palettes, modern typography, and dynamic micro-animations.\n"
-        "5. VERIFICATION PLAN: Include specific criteria for success and a strategy for testing each step.\n"
-        "6. DO NOT provide the final answer. Focus entirely on the technical roadmap and 'HOW' to solve it."
+        "1. GROUNDED RESEARCH: Start by identifying the core requirements, constraints, and necessary logic to solve the problem.\n"
+        "2. LOGICAL BREAKDOWN: Use numbered steps to represent the execution plan. Break the problem down into clear logical or mathematical steps.\n"
+        "3. EDGE CASES: Explicitly identify likely edge cases or technical pitfalls and integrate them into the plan.\n"
+        "4. VERIFICATION PLAN: Include specific criteria for success to verify the strategy.\n"
+        "5. DO NOT provide the final answer. Focus entirely on the step-by-step roadmap and 'HOW' to solve it."
     )
 
 
@@ -78,36 +77,35 @@ def _system_prompt_for_execute(mode: str) -> str:
     if mode == "hard":
         return (
             "You are the expert execution stage in a reasoning pipeline.\n"
-            "Your task: follow the provided plan with absolute technical rigor to produce a comprehensive solution.\n"
+            "Your task: follow the provided plan with absolute technical and logical rigor to produce a comprehensive solution.\n"
             "Instructions:\n"
-            "1. PLAN ADHERENCE: Abide strictly by the provided technical roadmap. If complexity requires a design change, note it clearly.\n"
-            "2. CONVENTION MIMICRY: Mirror the project's existing code style, naming conventions, and idiomatic patterns. NEVER assume a library is available—verify usage first.\n"
-            "3. SYMBOL TRACING: Trace every symbol to its definition and usage to ensure complete consistency across the codebase.\n"
-            "4. STEP-BY-STEP REASONING: Think through the implementation logic out loud to ensure all edge cases identified in the plan are handled.\n"
-            "5. DEFENSIVE SECURITY: Apply security best practices—sanitize inputs, avoid logging PII, and protect sensitive credentials.\n"
-            "6. FULL OUTPUT: Provide the complete, functional solution without gaps or placeholders."
+            "1. PLAN ADHERENCE: Abide strictly by the provided step-by-step roadmap.\n"
+            "2. LOGICAL RIGOR: Double-check arithmetic, logic, and assumptions. Trace dependencies to ensure consistency.\n"
+            "3. STEP-BY-STEP REASONING: Think through the implementation logic out loud to ensure all edge cases identified in the plan are handled.\n"
+            "4. BEST PRACTICES: Apply best practices for the domain, whether coding, mathematics, or writing.\n"
+            "5. FULL OUTPUT: Provide the complete, functional solution without gaps or placeholders."
         )
 
     # Standard mode focuses on high polish and direct utility
     return (
         "You are the expert execution stage in a reasoning pipeline. "
         "Use the provided plan to smoothly produce a final, highly polished, and directly useful user-facing answer. "
-        "Mimic existing conventions and trace all logic dependencies to ensure accuracy. "
-        "Think step-by-step but keep the final output clean, idiomatic, non-redundant, and ready for use."
+        "Double-check logic and dependencies to ensure accuracy. "
+        "Think step-by-step but keep the final output clean, non-redundant, and ready for use."
     )
 
 
 def _system_prompt_for_critique() -> str:
     return (
         "You are the expert critique and revision stage in a reasoning pipeline.\n"
-        "Your task: rigorously audit the draft answer against the original request, the technical plan, and engineering standards.\n"
+        "Your task: rigorously audit the draft answer against the original request, the technical plan, and objective standards.\n"
         "Instructions:\n"
-        "1. DIFFERENTIAL REVIEW: Review all modifications for factual errors, weak logic, or failure to follow constraints.\n"
-        "2. VERIFICATION CHECK: Confirm the solution meets the 'Verification Plan' from the planning stage and handles all identified edge cases.\n"
-        "3. OMISSIONS & LOGIC: Actively look for missed references, inconsistent naming, or unoptimized logic.\n"
-        "4. DIFFERENTIAL OUTPUT: Preserve the draft when it is already correct. Only rewrite the parts that need correction, then emit one final cleaned answer with duplicated wording removed.\n"
+        "1. DIFFERENTIAL REVIEW: Review the draft for factual errors, weak logic, or failure to follow constraints.\n"
+        "2. VERIFICATION CHECK: Confirm the solution handles all edge cases and correctly solves the problem.\n"
+        "3. LOGIC & OMISSIONS: Actively look for calculation errors, missing steps, or incomplete logic.\n"
+        "4. DIFFERENTIAL OUTPUT: If the draft is completely correct, output it exactly as is. ONLY modify it if you find a specific error. Do not change it just to change it.\n"
         "5. BREVITY UNDER CONTROL: Do not pad. If the draft already answered a point, do not restate it unless needed for correction.\n"
-        "6. NO META-COMMENTARY: Output ONLY the improved final answer. Do not include introductory filler, summaries of changes, or explanations."
+        "6. NO META-COMMENTARY: Output ONLY the final answer. Do not include introductory filler, summaries of changes, or explanations."
     )
 
 
@@ -142,7 +140,7 @@ def _build_messages_for_critique(user_message: str, plan: str, draft: str) -> li
                 f"User request:\n{user_message}\n\n"
                 f"Plan:\n{plan or 'No plan was generated.'}\n\n"
                 f"Draft answer:\n{draft or 'No draft answer was generated.'}\n\n"
-                "Provide the corrected final answer."
+                "If the draft answer is correct and complete, output it unchanged. Only modify it if you find a specific error."
             ),
         },
     ]
