@@ -77,6 +77,9 @@ async def run_benchmark(
     council_models: list[str],
     judge_model: str | None,
     ollama_think: bool,
+    plan_model: str | None = None,
+    execute_model: str | None = None,
+    critique_model: str | None = None,
     limit: int | None = None,
 ) -> None:
     """Run the full benchmark matrix."""
@@ -123,6 +126,9 @@ async def run_benchmark(
                     questions=active_questions,
                     council_models=council_models if mode == "council" else None,
                     judge_model=judge_model if mode == "council" else None,
+                    plan_model=plan_model,
+                    execute_model=execute_model,
+                    critique_model=critique_model,
                     ollama_think=ollama_think,
                     on_progress=_progress,
                     output_path=run_file,
@@ -255,6 +261,21 @@ def main() -> None:
         help="Enable Ollama native thinking mode",
     )
     parser.add_argument(
+        "--plan-model",
+        default=None,
+        help="Planning model for thinking pipeline (overrides main model)",
+    )
+    parser.add_argument(
+        "--execute-model",
+        default=None,
+        help="Execution model for thinking pipeline (overrides main model)",
+    )
+    parser.add_argument(
+        "--critique-model",
+        default=None,
+        help="Critique model for thinking pipeline (overrides main model)",
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=None,
@@ -287,6 +308,9 @@ def main() -> None:
             provider_kind=args.provider,
             council_models=council_models,
             judge_model=args.judge_model,
+            plan_model=args.plan_model,
+            execute_model=args.execute_model,
+            critique_model=args.critique_model,
             ollama_think=args.ollama_think,
             limit=args.limit,
         )

@@ -83,6 +83,9 @@ async def run_single(
     suite: str,
     council_models: list[str] | None = None,
     judge_model: str | None = None,
+    plan_model: str | None = None,
+    execute_model: str | None = None,
+    critique_model: str | None = None,
     ollama_think: bool = False,
 ) -> RunResult:
     """Run a single question through a specific pipeline mode."""
@@ -90,7 +93,11 @@ async def run_single(
     start = time.perf_counter()
 
     if mode in ("off", "medium", "hard"):
-        model_map = {"plan": model, "execute": model, "critique": model}
+        model_map = {
+            "plan": plan_model or model,
+            "execute": execute_model or model,
+            "critique": critique_model or model,
+        }
         pipeline = run_pipeline(
             client=client,
             provider_kind=provider_kind,
@@ -178,6 +185,9 @@ async def run_suite(
     questions: list[dict[str, str]],
     council_models: list[str] | None = None,
     judge_model: str | None = None,
+    plan_model: str | None = None,
+    execute_model: str | None = None,
+    critique_model: str | None = None,
     ollama_think: bool = False,
     on_progress: Any = None,
     output_path: Path | None = None,
@@ -202,6 +212,9 @@ async def run_suite(
             suite=suite_name,
             council_models=council_models,
             judge_model=judge_model,
+            plan_model=plan_model,
+            execute_model=execute_model,
+            critique_model=critique_model,
             ollama_think=ollama_think,
         )
         results.append(result)
