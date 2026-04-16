@@ -119,5 +119,5 @@ We evaluated the performance of MultiMind AI's reasoning pipeline using a subset
 <br>
 
 <div align="center">
-    <img width=65% alt="Image" src="https://github.com/user-attachments/assets/3df2b12f-97c1-4cb2-8b7d-b49a0c5c379c" />
+    <img width=65% alt="Image" src="https://github.com/user-attachments/assets/23024d8a-d246-4020-a4e5-f02906ecfc0d" />
 </div>
